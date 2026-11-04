@@ -59,6 +59,10 @@ Flags and environment variables:
 | | `OMT_GO_FILE` | Unraid boot script to edit, default `/boot/config/go` |
 | | `ZSH`, `ZSH_CUSTOM` | Oh My Zsh location, default `~/.oh-my-zsh` |
 
+### Missing programs
+
+Every config works without the programs that make up the full tier. At the end of an install, `setup.sh` lists the programs the chosen components use that are missing or too old (zsh, nvim, tmux, vim, screen, starship, fzf, omp and so on), what you get without each one, and a command that installs it when it knows the package manager. `--no-tools` leaves starship and fzf out of the list. The report only informs and never changes the exit status.
+
 ### Checking an install
 
 `./setup.sh doctor` changes nothing. It reports:

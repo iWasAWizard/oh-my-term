@@ -82,6 +82,13 @@ jobs:
           grep -Eq '^ +mux +minimal' doctor.txt
       - name: Smoke test
         run: ./scripts/smoke.sh
+      - name: The missing-programs report names what is missing
+        run: |
+          ./setup.sh --offline --no-chsh zsh nvim tmux | tee report.txt
+          grep -Eq '^ +zsh +not installed' report.txt
+          grep -Eq '^ +nvim +not installed' report.txt
+          grep -Eq '^ +tmux +not installed' report.txt
+          grep -q 'screen is used instead' report.txt
 
   # macOS runs setup.sh with /bin/bash, which is bash 3.2.
   install-macos:

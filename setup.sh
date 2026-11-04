@@ -432,6 +432,62 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# missing-programs report
+# ---------------------------------------------------------------------------
+
+# programs_for COMPONENT: the programs that component's config runs on
+programs_for() {
+    case "$1" in
+        bash | cli) ;;
+        tools) [ "$skip_tools" = "1" ] || printf 'starship fzf\n' ;;
+        pi) printf 'omp\n' ;;
+        *) printf '%s\n' "$1" ;;
+    esac
+}
+
+# report_missing COMPONENTS
+# Lists the programs the chosen components use that are missing or too old, with
+# what you get without each one. The configs work without them, so this only informs.
+report_missing() {
+    local c p progs min hint why
+    local seen=" "
+    local missing=0
+
+    for c in $1; do
+        progs="$(programs_for "$c")"
+        for p in $progs; do
+            case "$seen" in
+                *" ${p} "*) continue ;;
+            esac
+            seen="${seen}${p} "
+            if program_usable "$p"; then
+                continue
+            fi
+            if [ "$missing" = "0" ]; then
+                log "Missing programs (the configs still work, with the fallbacks below)"
+                missing=1
+            fi
+            if have "$p"; then
+                min="$(program_min "$p")"
+                why="while it is too old"
+                printf '    %-9s %s is installed but the config needs %s or newer\n' "$p" "$(program_version "$p")" "$min"
+            else
+                why="without it"
+                printf '    %-9s not installed\n' "$p"
+            fi
+            printf '    %-9s %s: %s\n' "" "$why" "$(program_fallback "$p")"
+            hint="$(install_hint "$p")"
+            if [ -n "$hint" ]; then
+                printf '    %-9s install it with: %s\n' "" "$hint"
+            fi
+        done
+    done
+    if [ "$missing" = "0" ]; then
+        log "Every program the chosen components use is installed"
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 
@@ -478,6 +534,8 @@ done
 if [ "$platform" = "unraid" ]; then
     unraid_persist "$requested"
 fi
+
+report_missing "$requested"
 
 log "Done."
 log "Terminal colors: import a file from ${OMT}/theme/emulator into your terminal app."
