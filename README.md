@@ -16,7 +16,7 @@ cd oh-my-term
 ./setup.sh --dry-run       # show what an install would do, change nothing
 ```
 
-`setup.sh` is idempotent. Anything it would replace is moved aside to `<name>.bak.<timestamp>` first. Open a new terminal afterwards, or run `reload`.
+`setup.sh` is idempotent. Anything it would replace is moved aside to `<name>.bak.<timestamp>` first, with `.1`, `.2` and so on added when two backups land in the same second, so a backup is never overwritten. Open a new terminal afterwards, or run `reload`.
 
 The installer runs on the bash that ships with macOS (3.2). It needs `git` and `curl` for the parts that download, and nothing else.
 
