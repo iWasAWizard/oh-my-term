@@ -92,20 +92,40 @@ jobs:
           grep -Eq '^ +tmux +not installed' report.txt
           grep -q 'screen is used instead' report.txt
 
-  # The airgap path: fill vendor/ from vendor.lock with the network, then install
-  # from it inside a network namespace that has no network at all.
+  # The airgap path: build a bundle with the network, then check and install it
+  # the way the isolated machine would, inside a network namespace that has no
+  # network at all.
   airgap:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Install programs
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh tmux neovim
-      - name: Fetch vendor/ and verify it
+      - name: Build the bundle
+        run: ./scripts/bundle.sh
+      - name: Check the archive and the extracted files
         run: |
-          ./scripts/vendor.sh
-          ./scripts/vendor.sh --verify
+          (cd dist && sha256sum -c ./*.sha256)
+          mkdir "$RUNNER_TEMP/arrive"
+          tar -xzf dist/oh-my-term-*.tar.gz -C "$RUNNER_TEMP/arrive"
+          cd "$RUNNER_TEMP/arrive/oh-my-term"
+          ./scripts/bundle.sh --verify
+          echo tampered >> vendor/zsh-autosuggestions/README.md
+          if ./scripts/bundle.sh --verify; then
+            echo "verify accepted a changed file" >&2
+            exit 1
+          fi
+          sed -i '$d' vendor/zsh-autosuggestions/README.md
+          echo extra > vendor/extra-file
+          if ./scripts/bundle.sh --verify; then
+            echo "verify accepted a file the manifest does not list" >&2
+            exit 1
+          fi
+          rm vendor/extra-file
+          ./scripts/bundle.sh --verify
       - name: Install offline with no network
         run: |
+          cd "$RUNNER_TEMP/arrive/oh-my-term"
           sudo unshare --net -- sudo -u "$USER" -H env "PATH=$PATH" CI=true OMT_OFFLINE=1 OMT_SKIP_TOOLS=0 ./scripts/ci-install.sh
 
   # macOS runs setup.sh with /bin/bash, which is bash 3.2.

@@ -46,8 +46,8 @@ All three are done.
 
 ## Priority 2: airgap and supply chain
 
-1. Done: `scripts/vendor.sh` is pinned by `vendor.lock`, with `--update`, `--verify` and `--check-lock`. Two limits remain. The first lock is trust on first use, so it is only as good as what was reviewed when it was taken. `--verify` cannot re-check the content of a vendored repository, because the copies have no `.git` directory, so it trusts the pin recorded when each was fetched. `scripts/bundle.sh` closes that second gap with a manifest of every file.
-2. `scripts/bundle.sh`. Run `vendor.sh`, tar the repository plus `vendor/`, and write a sha256 manifest. The transfer to an isolated machine becomes one file that can be verified on arrival.
+1. Done: `scripts/vendor.sh` is pinned by `vendor.lock`, with `--update`, `--verify` and `--check-lock`. Two limits remain. The first lock is trust on first use, so it is only as good as what was reviewed when it was taken. `vendor.sh --verify` cannot re-check the content of a vendored repository, because the copies have no `.git` directory, so it trusts the pin recorded when each was fetched. `bundle.sh --verify` closes that gap with a manifest of every file.
+2. Done: `scripts/bundle.sh` builds one archive of the repository and `vendor/` with a manifest of every file and symlink, and `--verify` checks it on the isolated machine. The manifest cannot catch a swapped archive, so the printed archive hash has to be compared by another route. The archive is not byte-for-byte reproducible.
 3. Programs on airgapped machines. `vendor.sh` carries configs and plugins and starship, but not zsh, neovim or tmux. Options are static builds of nvim and tmux in `vendor/bin`, or relying on the missing-programs report, which already says what is missing.
 4. ALE linters and fixers. `nvim/init.vim` configures flake8, pylint, shellcheck, hadolint, yamllint, shfmt and autopep8. Only autopep8 is installed by the `tools` component, so the rest fail quietly. Either install them, vendor them, or trim the config to what is present.
 
