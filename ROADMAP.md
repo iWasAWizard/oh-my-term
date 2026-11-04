@@ -36,8 +36,8 @@ Linux only, using fake `$HOME` directories in a container:
    - Run `setup.sh` in fresh Debian, Ubuntu and Alpine containers. Alpine will show whether the bash requirement bites.
    - Run `setup.sh` on `macos-latest`.
    - Run `ssh -G` against the shipped ssh config.
-2. `./setup.sh doctor`. Check that every link resolves, report tool versions against the minimums (tmux 3.0, neovim 0.9, bash 3.2, zsh 5.x), and list what is missing and which tier the machine falls back to.
-3. Missing-programs report at the end of `setup.sh`, for machines where zsh, nvim, tmux or starship are not installed. Print exactly what is missing and what you get without it.
+2. Done: `./setup.sh doctor` (`lib/doctor.sh`). It checks every link, reports tool versions against the minimums (tmux 3.0, neovim 0.9, bash 3.2, zsh 5.0), runs `ssh -G` against the config, and says which tier the machine runs. Run on macOS with bash 3.2 and a fake `$HOME`. Not yet run on Linux, and not run under shellcheck.
+3. Missing-programs report at the end of `setup.sh`, for machines where zsh, nvim, tmux or starship are not installed. Print exactly what is missing and what you get without it. The Programs and Tier sections of `doctor` already hold this text, so the report can reuse them.
 
 ## Priority 2: airgap and supply chain
 

@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: shellcheck
+        run: |
+          shellcheck -e SC1091 setup.sh lib/*.sh scripts/*.sh shell/common.sh
+          shellcheck -e SC1091 -s bash shell/bashrc shell/bash_profile
+      - name: No tabs in shell, tmux and vim files
+        run: |
+          if git grep -nI "$(printf '\t')" -- setup.sh 'lib/*' 'scripts/*' 'shell/*' 'tmux/*' 'vim/*' 'nvim/*'; then
+            echo "tabs found, use spaces" >&2
+            exit 1
+          fi
+      - name: Palette
+        run: ./scripts/check-theme.sh
+
+  # Full install on Linux, from a bare image plus the programs the full tier needs.
+  # Alpine ships without bash, which setup.sh requires, so bash is installed first.
+  install-linux:
+    name: install (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: debian 13
+            image: debian:13
+            install: apt-get update && apt-get install -y --no-install-recommends bash git curl ca-certificates openssh-client zsh tmux neovim vim screen
+          - name: ubuntu 24.04
+            image: ubuntu:24.04
+            install: apt-get update && apt-get install -y --no-install-recommends bash git curl ca-certificates openssh-client zsh tmux neovim vim screen
+          - name: alpine 3.22
+            image: alpine:3.22
+            install: apk add --no-cache bash git curl ca-certificates openssh-client zsh tmux neovim vim screen
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install programs
+        shell: sh
+        run: ${{ matrix.install }}
+      - uses: actions/checkout@v5
+      - name: Install, install again, doctor, smoke test
+        run: ./scripts/ci-install.sh
+
+  # Only the minimal tier: bash, vim and screen, no zsh, tmux, neovim or network.
+  install-minimal:
+    runs-on: ubuntu-latest
+    container: debian:13
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install programs
+        shell: sh
+        run: apt-get update && apt-get install -y --no-install-recommends bash git ca-certificates vim screen
+      - uses: actions/checkout@v5
+      - name: Install the minimal tier offline
+        run: ./setup.sh --offline --no-chsh bash vim screen
+      - name: Doctor reports the minimal tier
+        run: |
+          ./setup.sh doctor bash vim screen | tee doctor.txt
+          grep -Eq '^ +editor +minimal' doctor.txt
+          grep -Eq '^ +mux +minimal' doctor.txt
+      - name: Smoke test
+        run: ./scripts/smoke.sh
+
+  # macOS runs setup.sh with /bin/bash, which is bash 3.2.
+  install-macos:
+    name: install (macos)
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      OMT_SETUP_BASH: /bin/bash
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install programs
+        run: brew install tmux neovim
+      - name: Install, install again, doctor, smoke test
+        run: ./scripts/ci-install.sh
