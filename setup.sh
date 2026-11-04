@@ -6,8 +6,13 @@
 #   ./setup.sh                  install every component
 #   ./setup.sh bash vim screen  install only these
 #   ./setup.sh --offline        link only, using vendor/ for anything that needs a download
+#   ./setup.sh --dry-run        print what would be linked, seeded or installed, change nothing
+#   ./setup.sh --update         pull this repository, then refresh Oh My Zsh and the plugins
+#   ./setup.sh --uninstall      remove the links and put back the newest .bak.<timestamp>
 #   ./setup.sh --list           show the components
 #   ./setup.sh doctor [names]   check links, tool versions and the tier this machine runs
+#
+# --dry-run combines with the others, for example --uninstall --dry-run.
 #
 # Environment variables (each also has a flag where it makes sense):
 #   OMT_OFFLINE=1      never touch the network, install from vendor/ when possible
@@ -18,7 +23,7 @@
 #   ZSH, ZSH_CUSTOM    Oh My Zsh location (default ~/.oh-my-zsh)
 #
 # For compatibility with macOS, this script is written for bash 3.2.
-# Modern bash versionsi (4+) are forwards-compatible.
+# Modern bash versions (4+) are forwards-compatible.
 
 set -euo pipefail
 
@@ -33,6 +38,8 @@ ALL_COMPONENTS="bash zsh vim nvim screen tmux git ssh gdb cli pi tools"
 offline="${OMT_OFFLINE:-0}"
 no_chsh="${OMT_NO_CHSH:-0}"
 skip_tools="${OMT_SKIP_TOOLS:-0}"
+update=0
+uninstall=0
 go_file="${OMT_GO_FILE:-/boot/config/go}"
 go_marker="# oh-my-term persistence"
 
@@ -45,7 +52,7 @@ omp_dir="${OMP_AGENT_DIR:-$HOME/.omp/agent}"
 platform="$(detect_platform)"
 
 usage() {
-    sed -n '3,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '3,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 list_components() {
@@ -93,7 +100,12 @@ install_bash() {
 
 install_oh_my_zsh() {
     if [ -f "${ZSH}/oh-my-zsh.sh" ]; then
-        log "Oh My Zsh already installed at ${ZSH}"
+        if [ "$update" = "1" ] && [ -d "${ZSH}/.git" ] && can_download; then
+            log "Updating Oh My Zsh"
+            run git -C "$ZSH" pull --ff-only --quiet || warn "could not fast-forward Oh My Zsh, leaving it as is"
+        else
+            log "Oh My Zsh already installed at ${ZSH}"
+        fi
         return 0
     fi
     if [ -e "$ZSH" ] && [ -n "$(ls -A "$ZSH" 2>/dev/null)" ]; then
@@ -101,14 +113,17 @@ install_oh_my_zsh() {
     fi
     if [ -d "$(vendor_dir oh-my-zsh)" ]; then
         log "Installing Oh My Zsh from vendor/"
-        mkdir -p "$(dirname "$ZSH")"
-        cp -R "$(vendor_dir oh-my-zsh)" "$ZSH"
+        run mkdir -p "$(dirname "$ZSH")"
+        run cp -R "$(vendor_dir oh-my-zsh)" "$ZSH"
     elif can_download && have git; then
         log "Cloning Oh My Zsh into ${ZSH}"
         clone_or_update "${OMT_OMZ_URL:-https://github.com/ohmyzsh/ohmyzsh.git}" "$ZSH" \
             || die "could not clone Oh My Zsh"
     else
         warn "Oh My Zsh is not installed and cannot be fetched. The zshrc still works without it."
+        return 0
+    fi
+    if [ "$dry_run" = "1" ]; then
         return 0
     fi
     [ -f "${ZSH}/oh-my-zsh.sh" ] || die "Oh My Zsh install is missing oh-my-zsh.sh"
@@ -119,23 +134,26 @@ install_zsh_plugin() {
     local url="$2"
     local dir="${ZSH_CUSTOM}/plugins/${name}"
 
-    if [ ! -d "$ZSH" ]; then
+    if [ ! -d "$ZSH" ] && [ "$dry_run" != "1" ]; then
         return 0
     fi
     if [ -d "$dir" ]; then
         if [ -d "${dir}/.git" ] && can_download; then
             log "Updating ${name}"
-            git -C "$dir" pull --ff-only --quiet || warn "could not fast-forward ${name}, leaving it as is"
+            run git -C "$dir" pull --ff-only --quiet || warn "could not fast-forward ${name}, leaving it as is"
         fi
     elif [ -d "$(vendor_dir "$name")" ]; then
         log "Installing ${name} from vendor/"
-        mkdir -p "${ZSH_CUSTOM}/plugins"
-        cp -R "$(vendor_dir "$name")" "$dir"
+        run mkdir -p "${ZSH_CUSTOM}/plugins"
+        run cp -R "$(vendor_dir "$name")" "$dir"
     elif can_download && have git; then
         log "Installing ${name}"
         clone_or_update "$url" "$dir" || die "could not clone ${url}"
     else
         warn "${name} is not installed and cannot be fetched"
+        return 0
+    fi
+    if [ "$dry_run" = "1" ]; then
         return 0
     fi
     [ -f "${dir}/${name}.plugin.zsh" ] || [ -f "${dir}/${name}.zsh" ] \
@@ -155,7 +173,7 @@ set_login_shell() {
         return 0
     fi
     log "Setting zsh as your login shell (you may be asked for your password)"
-    chsh -s "$zsh_path" || warn "chsh failed. Set your login shell to zsh yourself: chsh -s ${zsh_path}"
+    run chsh -s "$zsh_path" || warn "chsh failed. Set your login shell to zsh yourself: chsh -s ${zsh_path}"
 }
 
 install_zsh() {
@@ -192,12 +210,12 @@ install_nvim() {
     link_file "${OMT}/vim/colors/omt-nord.vim" "${config_home}/nvim/colors/omt-nord.vim"
 
     if [ ! -f "$plug_dest" ]; then
-        mkdir -p "$(dirname "$plug_dest")"
+        run mkdir -p "$(dirname "$plug_dest")"
         if [ -f "$(vendor_dir vim-plug)/plug.vim" ]; then
-            cp "$(vendor_dir vim-plug)/plug.vim" "$plug_dest"
-            log "Installed vim-plug from vendor/"
+            run cp "$(vendor_dir vim-plug)/plug.vim" "$plug_dest"
+            did "Installed vim-plug from vendor/"
         elif can_download && have curl; then
-            curl -fsSLo "$plug_dest" https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim \
+            run curl -fsSLo "$plug_dest" https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim \
                 || warn "could not download vim-plug"
         else
             warn "vim-plug is not installed and cannot be fetched, Neovim will run without plugins"
@@ -205,17 +223,29 @@ install_nvim() {
     fi
 
     if [ -d "$(vendor_dir plugged)" ]; then
-        mkdir -p "$plugged"
+        run mkdir -p "$plugged"
         for entry in "$(vendor_dir plugged)"/*; do
             [ -d "$entry" ] || continue
             copy_dir_if_missing "$entry" "${plugged}/$(basename "$entry")"
         done
     fi
 
+    if [ "$dry_run" = "1" ]; then
+        if have nvim && can_download; then
+            plan "run: nvim --headless, install the plugins listed in init.vim with vim-plug"
+        fi
+        return 0
+    fi
     if have nvim && can_download && [ -f "$plug_dest" ]; then
-        log "Installing Neovim plugins"
-        nvim --headless -u "${config_home}/nvim/init.vim" -c 'PlugInstall --sync' -c 'PlugClean!' -c 'qa!' \
-            </dev/null >/dev/null 2>&1 || warn "PlugInstall reported a problem"
+        if [ "$update" = "1" ]; then
+            log "Updating vim-plug and the Neovim plugins"
+            nvim --headless -u "${config_home}/nvim/init.vim" -c 'PlugUpgrade' -c 'PlugUpdate --sync' -c 'PlugClean!' -c 'qa!' \
+                </dev/null >/dev/null 2>&1 || warn "PlugUpdate reported a problem"
+        else
+            log "Installing Neovim plugins"
+            nvim --headless -u "${config_home}/nvim/init.vim" -c 'PlugInstall --sync' -c 'PlugClean!' -c 'qa!' \
+                </dev/null >/dev/null 2>&1 || warn "PlugInstall reported a problem"
+        fi
         missing_file="$(mktemp)"
         nvim_missing_plugins "$missing_file"
         if [ -s "$missing_file" ]; then
@@ -238,6 +268,10 @@ install_tmux() {
     for name in tmux-resurrect tmux-continuum; do
         url="https://github.com/tmux-plugins/${name}"
         if [ -d "${plugins_dir}/${name}" ]; then
+            if [ "$update" = "1" ] && [ -d "${plugins_dir}/${name}/.git" ] && can_download; then
+                log "Updating ${name}"
+                run git -C "${plugins_dir}/${name}" pull --ff-only --quiet || warn "could not fast-forward ${name}, leaving it as is"
+            fi
             continue
         elif [ -d "$(vendor_dir tmux-plugins)/${name}" ]; then
             copy_dir_if_missing "$(vendor_dir tmux-plugins)/${name}" "${plugins_dir}/${name}"
@@ -257,7 +291,9 @@ install_git() {
     link_file "${OMT}/git/ignore" "${config_home}/git/ignore"
     # `git config --global` writes to ~/.gitconfig when it exists, so create it
     # to keep your name and email out of the repository.
-    if [ ! -e "$seed" ]; then
+    if [ ! -e "$seed" ] && [ "$dry_run" = "1" ]; then
+        plan "create ${seed} for your name and email"
+    elif [ ! -e "$seed" ]; then
         {
             printf '# Machine-specific git settings. The shared settings live in %s/git/config.\n' "$OMT"
             printf '# [user]\n#     name = Your Name\n#     email = you@example.com\n'
@@ -273,19 +309,19 @@ install_ssh() {
     local cfg="${HOME}/.ssh/config"
     local local_cfg="${HOME}/.ssh/config.local"
 
-    mkdir -p "${HOME}/.ssh/cm"
-    chmod 700 "${HOME}/.ssh" "${HOME}/.ssh/cm"
+    run mkdir -p "${HOME}/.ssh/cm"
+    run chmod 700 "${HOME}/.ssh" "${HOME}/.ssh/cm"
     # An existing real config holds your hosts. Keep it as config.local, which
     # the shared config includes first, instead of hiding it in a backup.
     if [ -f "$cfg" ] && [ ! -L "$cfg" ] && [ ! -e "$local_cfg" ]; then
-        mv -- "$cfg" "$local_cfg"
-        chmod 600 "$local_cfg"
-        log "Moved your existing ${cfg} to ${local_cfg}, which the new config includes"
+        run mv -- "$cfg" "$local_cfg"
+        run chmod 600 "$local_cfg"
+        did "Moved your existing ${cfg} to ${local_cfg}, which the new config includes"
     fi
     link_file "${OMT}/ssh/config" "$cfg"
     if [ ! -e "$local_cfg" ]; then
         seed_file "${OMT}/ssh/config.local.example" "$local_cfg"
-        chmod 600 "$local_cfg"
+        run chmod 600 "$local_cfg"
     fi
 }
 
@@ -304,10 +340,10 @@ install_pi() {
     if ! have omp && can_download; then
         if have bun; then
             log "Installing oh-my-pi with bun"
-            bun install -g @oh-my-pi/pi-coding-agent || warn "bun could not install oh-my-pi"
+            run bun install -g @oh-my-pi/pi-coding-agent || warn "bun could not install oh-my-pi"
         elif have brew; then
             log "Installing oh-my-pi with Homebrew"
-            brew install can1357/tap/omp || warn "brew could not install oh-my-pi"
+            run brew install can1357/tap/omp || warn "brew could not install oh-my-pi"
         else
             warn "oh-my-pi is not installed. Install bun or Homebrew and run this again, or see https://omp.sh"
         fi
@@ -328,6 +364,18 @@ install_starship() {
     fi
     target="$(starship_target)" || { warn "no starship build for this machine"; return 0; }
     tarball="starship-${target}.tar.gz"
+    if [ "$dry_run" = "1" ]; then
+        if [ -f "$(vendor_dir bin)/${tarball}" ]; then
+            plan "install starship from vendor/bin/${tarball} into ${bin_dir}"
+        elif ! can_download; then
+            plan "skip starship, it is not in vendor/ and this is an offline run"
+        elif have brew; then
+            plan "run: brew install starship"
+        else
+            plan "download ${tarball} and install starship into ${bin_dir}"
+        fi
+        return 0
+    fi
     tmp="$(mktemp -d)"
 
     if [ -f "$(vendor_dir bin)/${tarball}" ]; then
@@ -369,6 +417,10 @@ install_python_tool() {
     local tool="$1"
 
     have "$tool" && return 0
+    if [ "$dry_run" = "1" ]; then
+        plan "install ${tool} with pipx, uv or pip3, whichever is installed"
+        return 0
+    fi
     log "Installing ${tool}"
     if have pipx && pipx install "$tool"; then
         return 0
@@ -391,7 +443,9 @@ install_tools() {
         return 0
     fi
 
-    if ! have fzf && [ ! -x "${HOME}/.fzf/bin/fzf" ]; then
+    if ! have fzf && [ ! -x "${HOME}/.fzf/bin/fzf" ] && [ "$dry_run" = "1" ]; then
+        plan "install fzf with Homebrew, or clone it into ${HOME}/.fzf"
+    elif ! have fzf && [ ! -x "${HOME}/.fzf/bin/fzf" ]; then
         log "Installing fzf"
         if have brew && brew install fzf; then
             :
@@ -422,6 +476,10 @@ unraid_persist() {
         log "${go_file} already has the oh-my-term block (edit or delete it to change the component list)"
         return 0
     fi
+    if [ "$dry_run" = "1" ]; then
+        plan "add the boot-time install to ${go_file}: bash ${OMT}/setup.sh --offline --no-chsh ${run_list}"
+        return 0
+    fi
     cp "$go_file" "${go_file}.bak.$(timestamp)"
     cat >> "$go_file" <<EOF
 
@@ -429,6 +487,78 @@ ${go_marker}
 bash "${OMT}/setup.sh" --offline --no-chsh ${run_list} > /var/log/oh-my-term.log 2>&1
 EOF
     log "Added boot-time install to ${go_file} (backup saved beside it)"
+}
+
+# ---------------------------------------------------------------------------
+# uninstall: the links go, the newest backup comes back. Things the installer
+# downloaded or copied, and files you may have edited, stay where they are.
+# ---------------------------------------------------------------------------
+
+# uninstall_ssh: the installer moved your own ssh config to config.local, which
+# only the shared config includes, so put it back when the shared config goes.
+uninstall_ssh() {
+    local cfg="${HOME}/.ssh/config"
+    local local_cfg="${HOME}/.ssh/config.local"
+    local ours=0
+
+    if [ -L "$cfg" ] && [ "$cfg" -ef "${OMT}/ssh/config" ]; then
+        ours=1
+    fi
+    unlink_file "${OMT}/ssh/config" "$cfg"
+    if [ "$ours" = "1" ] && [ "$unlink_restored" = "0" ] && [ -f "$local_cfg" ] \
+        && ! cmp -s "$local_cfg" "${OMT}/ssh/config.local.example"; then
+        run mv -- "$local_cfg" "$cfg"
+        did "Moved ${local_cfg} back to ${cfg}, since the shared config that included it is gone"
+    fi
+}
+
+uninstall_component() {
+    case "$1" in
+        bash)
+            unlink_file "${OMT}/shell/bashrc" "${HOME}/.bashrc"
+            unlink_file "${OMT}/shell/inputrc" "${HOME}/.inputrc"
+            unlink_file "${OMT}/shell/bash_profile" "${HOME}/.bash_profile"
+            ;;
+        zsh) unlink_file "${OMT}/shell/zshrc" "${HOME}/.zshrc" ;;
+        vim)
+            unlink_file "${OMT}/vim/vimrc" "${HOME}/.vimrc"
+            unlink_file "${OMT}/vim/colors/omt-nord.vim" "${HOME}/.vim/colors/omt-nord.vim"
+            ;;
+        nvim)
+            unlink_file "${OMT}/nvim/init.vim" "${config_home}/nvim/init.vim"
+            unlink_file "${OMT}/vim/colors/omt-nord.vim" "${config_home}/nvim/colors/omt-nord.vim"
+            ;;
+        screen) unlink_file "${OMT}/screen/screenrc" "${HOME}/.screenrc" ;;
+        tmux) unlink_file "${OMT}/tmux/tmux.conf" "${HOME}/.tmux.conf" ;;
+        git)
+            unlink_file "${OMT}/git/gitconfig" "${config_home}/git/config"
+            unlink_file "${OMT}/git/ignore" "${config_home}/git/ignore"
+            ;;
+        ssh) uninstall_ssh ;;
+        gdb) unlink_file "${OMT}/gdb/gdbinit" "${HOME}/.gdbinit" ;;
+        pi)
+            unlink_file "${OMT}/pi/AGENTS.md" "${omp_dir}/AGENTS.md"
+            unlink_file "${OMT}/pi/skills" "${omp_dir}/skills"
+            ;;
+        cli | tools) log "${1}: nothing was linked" ;;
+    esac
+}
+
+# run_uninstall COMPONENTS ALL
+# ALL is 1 when no component was named, which also removes the ~/.config/oh-my-term link.
+run_uninstall() {
+    local c
+
+    for c in $1; do
+        log "Removing ${c}"
+        uninstall_component "$c"
+    done
+    if [ "$2" = "1" ]; then
+        unlink_file "$OMT" "${config_home}/oh-my-term"
+    fi
+    log "Left in place: files seeded for you to edit (~/.gitconfig, ~/.ssh/config.local, btop.conf),"
+    log "and what was installed (Oh My Zsh and its plugins, Neovim plugins, tmux plugins, starship, fzf, omp)."
+    log "Delete those by hand if you want them gone."
 }
 
 # ---------------------------------------------------------------------------
@@ -493,21 +623,30 @@ report_missing() {
 
 requested=""
 doctor_mode=0
+named_components=0
+orig_args=("$@")
 while [ $# -gt 0 ]; do
     case "$1" in
         doctor) doctor_mode=1 ;;
         --offline) offline=1 ;;
+        --dry-run | -n) dry_run=1 ;;
+        --update) update=1 ;;
+        --uninstall) uninstall=1 ;;
         --no-chsh) no_chsh=1 ;;
         --no-tools) skip_tools=1 ;;
         --list) list_components; exit 0 ;;
         -h | --help) usage; exit 0 ;;
         -*) die "unknown option: $1 (try --help)" ;;
         all) requested="${requested} ${ALL_COMPONENTS}" ;;
-        *) requested="${requested} $1" ;;
+        *) requested="${requested} $1"; named_components=1 ;;
     esac
     shift
 done
 [ -n "$requested" ] || requested="$ALL_COMPONENTS"
+# One space between names, none at the ends: the Unraid go file line is built from this
+# shellcheck disable=SC2086
+set -- $requested
+requested="$*"
 
 for c in $requested; do
     case " ${ALL_COMPONENTS} " in
@@ -521,8 +660,40 @@ if [ "$doctor_mode" = "1" ]; then
     exit 1
 fi
 
+if [ "$update" = "1" ] && [ "$uninstall" = "1" ]; then
+    die "--update and --uninstall cannot be combined"
+fi
+if [ "$dry_run" = "1" ]; then
+    log "Dry run: nothing will be changed"
+fi
+
+if [ "$uninstall" = "1" ]; then
+    all_components=1
+    [ "$named_components" = "0" ] || all_components=0
+    run_uninstall "$requested" "$all_components"
+    exit 0
+fi
+
+if [ "$update" = "1" ]; then
+    can_download || die "--update needs the network. On a machine with no internet, extract a newer bundle (scripts/bundle.sh) and run ./setup.sh --offline."
+    # Pull first, then start over with the new setup.sh: bash reads a script as it
+    # runs, so editing it underneath a running copy is not safe.
+    if [ "${OMT_UPDATE_PULLED:-0}" != "1" ]; then
+        if [ -d "${OMT}/.git" ] && have git; then
+            log "Updating ${OMT}"
+            run git -C "$OMT" pull --ff-only --quiet \
+                || die "could not fast-forward ${OMT}. Resolve it with git and run this again."
+            if [ "$dry_run" != "1" ]; then
+                OMT_UPDATE_PULLED=1 exec "$BASH" "${BASH_SOURCE[0]}" "${orig_args[@]}"
+            fi
+        else
+            warn "${OMT} is not a git checkout, so the repository itself was not updated"
+        fi
+    fi
+fi
+
 log "Platform: ${platform}"
-mkdir -p "${config_home}"
+run mkdir -p "${config_home}"
 if [ ! "$OMT" -ef "${config_home}/oh-my-term" ]; then
     link_file "$OMT" "${config_home}/oh-my-term"
 fi
@@ -536,6 +707,11 @@ if [ "$platform" = "unraid" ]; then
 fi
 
 report_missing "$requested"
+
+if [ "$dry_run" = "1" ]; then
+    log "Dry run finished, nothing was changed."
+    exit 0
+fi
 
 log "Done."
 log "Terminal colors: import a file from ${OMT}/theme/emulator into your terminal app."

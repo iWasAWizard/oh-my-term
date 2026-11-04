@@ -24,6 +24,30 @@ timestamp() {
     date +%Y%m%d%H%M%S
 }
 
+# setup.sh --dry-run sets this. Every helper below that changes something checks it.
+dry_run="${OMT_DRY_RUN:-0}"
+
+# plan MESSAGE: what a dry run would do
+plan() {
+    printf '==> would %s\n' "$*"
+}
+
+# did MESSAGE: log something that was done. Silent under --dry-run, where plan said it already.
+did() {
+    if [ "$dry_run" != "1" ]; then
+        log "$@"
+    fi
+}
+
+# run COMMAND...: runs the command, or only prints it under --dry-run
+run() {
+    if [ "$dry_run" = "1" ]; then
+        plan "run: $*"
+    else
+        "$@"
+    fi
+}
+
 # link_file SRC DST
 # Makes DST a symlink to SRC. Anything already at DST is moved aside first.
 link_file() {
@@ -32,7 +56,6 @@ link_file() {
     local bak
 
     [ -e "$src" ] || die "missing source file: ${src}"
-    mkdir -p "$(dirname "$dst")"
 
     if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
         log "${dst} already linked"
@@ -42,6 +65,14 @@ link_file() {
         log "${dst} already is the repo file"
         return 0
     fi
+    if [ "$dry_run" = "1" ]; then
+        if [ -e "$dst" ] || [ -L "$dst" ]; then
+            plan "move ${dst} aside to ${dst}.bak.<timestamp>"
+        fi
+        plan "link ${dst} -> ${src}"
+        return 0
+    fi
+    mkdir -p "$(dirname "$dst")"
     if [ -e "$dst" ] || [ -L "$dst" ]; then
         bak="${dst}.bak.$(timestamp)"
         mv -- "$dst" "$bak"
@@ -49,6 +80,46 @@ link_file() {
     fi
     ln -s -- "$src" "$dst"
     log "Linked ${dst} -> ${src}"
+}
+
+# unlink_file SRC DST
+# The reverse of link_file. Removes DST when it is a link to SRC, then puts back
+# the newest DST.bak.<timestamp>. Sets unlink_restored to 1 when it did that.
+# shellcheck disable=SC2034 # unlink_restored is read by setup.sh
+unlink_file() {
+    local src="$1"
+    local dst="$2"
+    local bak newest=""
+
+    unlink_restored=0
+    if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then
+        return 0
+    fi
+    if [ ! -L "$dst" ] || { [ ! "$dst" -ef "$src" ] && [ "$(readlink "$dst")" != "$src" ]; }; then
+        log "${dst} is not a link to this repository, leaving it alone"
+        return 0
+    fi
+    # Backup names end in a timestamp, so the last one the glob lists is the newest
+    for bak in "${dst}".bak.*; do
+        if [ -e "$bak" ] || [ -L "$bak" ]; then
+            newest="$bak"
+        fi
+    done
+    if [ "$dry_run" = "1" ]; then
+        plan "remove the link ${dst}"
+        if [ -n "$newest" ]; then
+            plan "restore ${newest} to ${dst}"
+            unlink_restored=1
+        fi
+        return 0
+    fi
+    rm -- "$dst"
+    log "Removed ${dst}"
+    if [ -n "$newest" ]; then
+        mv -- "$newest" "$dst"
+        log "Restored ${newest} to ${dst}"
+        unlink_restored=1
+    fi
 }
 
 # seed_file SRC DST
@@ -61,6 +132,10 @@ seed_file() {
     [ -e "$src" ] || die "missing source file: ${src}"
     if [ -e "$dst" ]; then
         log "${dst} already exists, leaving it alone"
+        return 0
+    fi
+    if [ "$dry_run" = "1" ]; then
+        plan "create ${dst} from ${src}"
         return 0
     fi
     mkdir -p "$(dirname "$dst")"
@@ -76,6 +151,10 @@ copy_dir_if_missing() {
     if [ -e "$dst" ]; then
         return 0
     fi
+    if [ "$dry_run" = "1" ]; then
+        plan "copy ${src} to ${dst}"
+        return 0
+    fi
     mkdir -p "$(dirname "$dst")"
     cp -R -- "$src" "$dst"
     log "Copied ${src} to ${dst}"
@@ -87,6 +166,14 @@ clone_or_update() {
     local url="$1"
     local dir="$2"
 
+    if [ "$dry_run" = "1" ]; then
+        if [ -d "${dir}/.git" ]; then
+            plan "run: git -C ${dir} pull --ff-only"
+        elif [ ! -e "$dir" ]; then
+            plan "run: git clone --depth 1 ${url} ${dir}"
+        fi
+        return 0
+    fi
     if [ -d "${dir}/.git" ]; then
         git -C "$dir" pull --ff-only --quiet || warn "could not fast-forward ${dir}, leaving it as is"
     elif [ -e "$dir" ]; then
