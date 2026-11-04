@@ -7,6 +7,7 @@
 #   ./setup.sh bash vim screen  install only these
 #   ./setup.sh --offline        link only, using vendor/ for anything that needs a download
 #   ./setup.sh --list           show the components
+#   ./setup.sh doctor [names]   check links, tool versions and the tier this machine runs
 #
 # Environment variables (each also has a flag where it makes sense):
 #   OMT_OFFLINE=1      never touch the network, install from vendor/ when possible
@@ -24,6 +25,8 @@ set -euo pipefail
 OMT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/install.sh
 . "${OMT}/lib/install.sh"
+# shellcheck source=lib/doctor.sh
+. "${OMT}/lib/doctor.sh"
 
 ALL_COMPONENTS="bash zsh vim nvim screen tmux git ssh gdb cli pi tools"
 
@@ -42,7 +45,7 @@ omp_dir="${OMP_AGENT_DIR:-$HOME/.omp/agent}"
 platform="$(detect_platform)"
 
 usage() {
-    sed -n '3,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '3,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 list_components() {
@@ -432,8 +435,10 @@ EOF
 # ---------------------------------------------------------------------------
 
 requested=""
+doctor_mode=0
 while [ $# -gt 0 ]; do
     case "$1" in
+        doctor) doctor_mode=1 ;;
         --offline) offline=1 ;;
         --no-chsh) no_chsh=1 ;;
         --no-tools) skip_tools=1 ;;
@@ -453,6 +458,11 @@ for c in $requested; do
         *) die "unknown component: ${c} (try --list)" ;;
     esac
 done
+
+if [ "$doctor_mode" = "1" ]; then
+    run_doctor "$requested" && exit 0
+    exit 1
+fi
 
 log "Platform: ${platform}"
 mkdir -p "${config_home}"

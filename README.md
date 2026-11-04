@@ -12,6 +12,7 @@ cd oh-my-term
 ./setup.sh                 # everything
 ./setup.sh bash vim screen # only the minimal tier
 ./setup.sh --list          # show the components
+./setup.sh doctor          # check the install
 ```
 
 `setup.sh` is idempotent. Anything it would replace is moved aside to `<name>.bak.<timestamp>` first. Open a new terminal afterwards, or run `reload`.
@@ -57,6 +58,17 @@ Flags and environment variables:
 | | `OMT_PLATFORM` | Force `macos`, `linux` or `unraid` |
 | | `OMT_GO_FILE` | Unraid boot script to edit, default `/boot/config/go` |
 | | `ZSH`, `ZSH_CUSTOM` | Oh My Zsh location, default `~/.oh-my-zsh` |
+
+### Checking an install
+
+`./setup.sh doctor` changes nothing. It reports:
+
+- Program versions against the minimums: bash 3.2, zsh 5.0, tmux 3.0 and neovim 0.9. A program that is installed but too old counts as a failure.
+- Whether every link and seeded file is in place. A broken link is a failure. A missing file, or one that points somewhere else, is a warning.
+- Whether login bash sessions load `~/.bashrc`, whether the neovim plugins are installed, and whether `ssh -G` accepts the ssh config.
+- Which tier the machine runs for the shell, the editor and the multiplexer, and what is missing for the full one.
+
+Pass component names to check only those links, for example `./setup.sh doctor bash vim`. The exit status is 1 when anything failed, and warnings alone do not change it.
 
 ### How the links work
 
@@ -160,6 +172,7 @@ screen stays in the minimal tier because it handles serial consoles (`screen /de
 ```
 setup.sh            installer
 lib/install.sh      helpers used by setup.sh and scripts/vendor.sh
+lib/doctor.sh       the checks behind setup.sh doctor
 scripts/            vendor.sh (fill vendor/), check-theme.sh
 shell/              bashrc, zshrc, common.sh, inputrc, starship.toml
 vim/  nvim/         vimrc and colorscheme, init.vim
