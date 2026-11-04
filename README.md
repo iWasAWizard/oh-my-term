@@ -88,7 +88,18 @@ On a machine that has internet, from inside the repository:
 ./scripts/vendor.sh
 ```
 
-This fills `vendor/` with Oh My Zsh, the zsh plugins, the tmux plugins, vim-plug, every neovim plugin listed in `nvim/init.vim`, and starship builds for Linux and macOS on x86_64 and arm64 (checked against their published sha256). `vendor/` is ignored by git.
+This fills `vendor/` with Oh My Zsh, the zsh plugins, the tmux plugins, vim-plug, every neovim plugin listed in `nvim/init.vim`, and starship builds for Linux and macOS on x86_64 and arm64. `vendor/` is ignored by git.
+
+Everything is pinned in `vendor.lock`, which is checked in: a commit SHA for each repository and a sha256 for each download. `vendor.sh` fetches exactly those commits and refuses a file that does not hash to its pin, so two runs a month apart give the same bytes, and the starship checksum no longer comes from the same place as the tarball.
+
+| Command | What it does |
+| --- | --- |
+| `./scripts/vendor.sh` | Fetch what `vendor.lock` pins. Items already at their pin are left alone |
+| `./scripts/vendor.sh --update` | Look up the latest commits and the latest starship release, and rewrite `vendor.lock` |
+| `./scripts/vendor.sh --verify` | Check `vendor/` against `vendor.lock` without the network. Files are re-hashed. Repositories are checked against the pin recorded when they were fetched, because the copies have no `.git` directory |
+| `./scripts/vendor.sh --check-lock` | Check that `vendor.lock` is well formed and covers every repository `setup.sh` installs, including each plugin in `nvim/init.vim` |
+
+`--update` only rewrites the lock, so the new versions show up as a diff. Read `git diff vendor.lock` before you commit it, since each changed line is code that will run on your machines. The pins are as trustworthy as what you saw when you accepted them: the first lock was taken from the upstream repositories as they were that day.
 
 Copy the whole directory to the other machine, for example with `tar`, and run:
 
@@ -178,6 +189,7 @@ setup.sh            installer
 lib/install.sh      helpers used by setup.sh and scripts/vendor.sh
 lib/doctor.sh       the checks behind setup.sh doctor
 scripts/            vendor.sh (fill vendor/), check-theme.sh, smoke.sh, ci-install.sh
+vendor.lock         pins for everything vendor.sh downloads
 shell/              bashrc, zshrc, common.sh, inputrc, starship.toml
 vim/  nvim/         vimrc and colorscheme, init.vim
 screen/  tmux/      screenrc, tmux.conf

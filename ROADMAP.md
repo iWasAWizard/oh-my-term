@@ -46,7 +46,7 @@ All three are done.
 
 ## Priority 2: airgap and supply chain
 
-1. Pin `scripts/vendor.sh`. It currently clones HEAD of every repository and downloads starship `latest`. Add a lockfile of commit SHAs and tarball sha256 values, checked into the repository, so bundles are reproducible and refreshes show up as a reviewable diff. The starship checksum is fetched from the same release as the tarball, so it catches corruption but not tampering.
+1. Done: `scripts/vendor.sh` is pinned by `vendor.lock`, with `--update`, `--verify` and `--check-lock`. Two limits remain. The first lock is trust on first use, so it is only as good as what was reviewed when it was taken. `--verify` cannot re-check the content of a vendored repository, because the copies have no `.git` directory, so it trusts the pin recorded when each was fetched. `scripts/bundle.sh` closes that second gap with a manifest of every file.
 2. `scripts/bundle.sh`. Run `vendor.sh`, tar the repository plus `vendor/`, and write a sha256 manifest. The transfer to an isolated machine becomes one file that can be verified on arrival.
 3. Programs on airgapped machines. `vendor.sh` carries configs and plugins and starship, but not zsh, neovim or tmux. Options are static builds of nvim and tmux in `vendor/bin`, or relying on the missing-programs report, which already says what is missing.
 4. ALE linters and fixers. `nvim/init.vim` configures flake8, pylint, shellcheck, hadolint, yamllint, shfmt and autopep8. Only autopep8 is installed by the `tools` component, so the rest fail quietly. Either install them, vendor them, or trim the config to what is present.

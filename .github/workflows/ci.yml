@@ -30,6 +30,8 @@ jobs:
           fi
       - name: Palette
         run: ./scripts/check-theme.sh
+      - name: vendor.lock is well formed and covers every plugin
+        run: ./scripts/vendor.sh --check-lock
 
   # Full install on Linux, from a bare image plus the programs the full tier needs.
   # Alpine ships without bash, which setup.sh requires, so bash is installed first.
@@ -89,6 +91,22 @@ jobs:
           grep -Eq '^ +nvim +not installed' report.txt
           grep -Eq '^ +tmux +not installed' report.txt
           grep -q 'screen is used instead' report.txt
+
+  # The airgap path: fill vendor/ from vendor.lock with the network, then install
+  # from it inside a network namespace that has no network at all.
+  airgap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install programs
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh tmux neovim
+      - name: Fetch vendor/ and verify it
+        run: |
+          ./scripts/vendor.sh
+          ./scripts/vendor.sh --verify
+      - name: Install offline with no network
+        run: |
+          sudo unshare --net -- sudo -u "$USER" -H env "PATH=$PATH" CI=true OMT_OFFLINE=1 OMT_SKIP_TOOLS=0 ./scripts/ci-install.sh
 
   # macOS runs setup.sh with /bin/bash, which is bash 3.2.
   install-macos:
