@@ -1,0 +1,66 @@
+# Starship prompt in the style of the Kali two-line prompt. Colors are the 16
+# ANSI names, so they follow the terminal palette (Nord, see theme/emulator).
+#
+#   ┌──(user㉿host)-[~/some/dir] main !2 py3.13
+#   └─$
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = true
+command_timeout = 500
+
+format = '''
+[┌──\(](bold green)$username[㉿](bold blue)$hostname[\)-\[](bold green)$directory[\]](bold green)$git_branch$git_status$python$cmd_duration$status$jobs
+[└─](bold green)$character'''
+
+[username]
+show_always = true
+style_user = 'bold blue'
+style_root = 'bold red'
+format = '[$user]($style)'
+
+[hostname]
+ssh_only = false
+style = 'bold blue'
+format = '[$hostname]($style)'
+
+[directory]
+truncation_length = 4
+truncation_symbol = '…/'
+style = 'bold white'
+format = '[$path]($style)[$read_only]($read_only_style)'
+
+[git_branch]
+symbol = ''
+style = 'cyan'
+format = ' [$symbol$branch]($style)'
+
+[git_status]
+style = 'yellow'
+format = '( [$all_status$ahead_behind]($style))'
+
+[python]
+symbol = 'py '
+style = 'green'
+format = '( [${symbol}${version}( \($virtualenv\))]($style))'
+
+[cmd_duration]
+min_time = 2000
+style = 'yellow'
+format = ' [took $duration]($style)'
+
+[character]
+success_symbol = '[\$](bold blue)'
+error_symbol = '[\$](bold blue)'
+
+[status]
+disabled = false
+style = 'bold red'
+symbol = '⨯'
+format = '[ $status $symbol]($style)'
+
+[jobs]
+symbol = '⚙'
+style = 'bold yellow'
+number_threshold = 1
+format = '[ $number $symbol]($style)'

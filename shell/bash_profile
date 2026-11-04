@@ -1,0 +1,2 @@
+# Login shells read this file instead of ~/.bashrc, so load the interactive config here.
+[ -r "$HOME/.bashrc" ] && . "$HOME/.bashrc"

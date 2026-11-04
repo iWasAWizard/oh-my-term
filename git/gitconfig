@@ -1,0 +1,55 @@
+# oh-my-term git settings, linked to ~/.config/git/config. Git also reads
+# ~/.gitconfig, which holds your name, email and anything machine-specific.
+
+[init]
+    defaultBranch = main
+
+[core]
+    autocrlf = input
+    whitespace = trailing-space,space-before-tab
+    pager = less -FRX
+
+[color]
+    ui = auto
+
+[pull]
+    ff = only            # a pull that cannot fast-forward stops and asks you what to do
+
+[push]
+    default = simple
+    autoSetupRemote = true
+
+[fetch]
+    prune = true
+
+[rebase]
+    autoStash = true
+    autoSquash = true
+
+[merge]
+    conflictStyle = diff3
+
+[diff]
+    algorithm = histogram
+    mnemonicPrefix = true
+
+[log]
+    date = iso-local
+
+[alias]
+    st = status -sb
+    co = checkout
+    sw = switch
+    br = branch -vv
+    ci = commit
+    cm = commit -m
+    amend = commit --amend --no-edit
+    unstage = reset HEAD --
+    undo = reset --soft HEAD~1
+    last = log -1 --stat
+    lg = log --graph --abbrev-commit --decorate --format=tformat:'%C(bold blue)%h%C(reset) %C(green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)'
+    lga = lg --all
+    d = diff
+    ds = diff --staged
+    wip = !git add -A && git commit -m 'wip'
+    root = rev-parse --show-toplevel

@@ -1,0 +1,30 @@
+# oh-my-term screenrc: the minimal tier. Plain GNU screen settings that work on
+# old systems too. Colors use the terminal's ANSI palette (Nord, see
+# theme/emulator). The tmux config uses the same C-a prefix.
+
+startup_message off
+vbell off
+autodetach on
+defutf8 on
+defscrollback 20000
+defbce on
+altscreen on
+shell -$SHELL
+
+# Let the terminal's own scrollback work
+termcapinfo xterm* ti@:te@
+
+# Status line: host and window list on the left, date and time on the right
+hardstatus alwayslastline
+hardstatus string '%{= wk} %H %{= wk}| %-w%{= kb} %n %t %{-}%+w %=%{= wk}%Y-%m-%d %c '
+
+# Window titles follow the running command
+shelltitle '$ |bash'
+
+# Move between regions with vim keys (C-a j, C-a k)
+bind j focus down
+bind k focus up
+bind s split
+
+# C-a A renames the window, as in the stock config
+bind A title
