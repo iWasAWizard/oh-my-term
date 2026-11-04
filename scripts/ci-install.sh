@@ -66,3 +66,33 @@ setup doctor
 
 log "Smoke test"
 "${repo_root}/scripts/smoke.sh"
+
+# The checks below use empty homes of their own, so they do not disturb the install above.
+
+log "--dry-run changes nothing"
+dry_home="$(mktemp -d)"
+HOME="$dry_home" setup --dry-run --offline >/dev/null
+HOME="$dry_home" OMT_OFFLINE=0 setup --update --dry-run bash >/dev/null
+if [ -n "$(find "$dry_home" -mindepth 1)" ]; then
+    die "--dry-run created files in $dry_home: $(find "$dry_home" -mindepth 1 | head -n 5)"
+fi
+
+log "--update refuses to run offline"
+if HOME="$dry_home" setup --update --offline >/dev/null 2>&1; then
+    die "--update --offline should have failed"
+fi
+
+log "--uninstall removes the links and puts your files back"
+un_home="$(mktemp -d)"
+mkdir -p "${un_home}/.ssh"
+printf 'my bashrc\n' > "${un_home}/.bashrc"
+printf 'Host work\n' > "${un_home}/.ssh/config"
+HOME="$un_home" setup --offline --no-tools >/dev/null
+HOME="$un_home" setup --uninstall >/dev/null
+[ "$(cat "${un_home}/.bashrc")" = "my bashrc" ] || die "--uninstall did not restore ~/.bashrc"
+[ "$(cat "${un_home}/.ssh/config")" = "Host work" ] || die "--uninstall did not restore ~/.ssh/config"
+find "$un_home" -type l | while read -r link; do
+    case "$(readlink "$link")" in
+        "${repo_root}"*) die "--uninstall left $link -> $(readlink "$link")" ;;
+    esac
+done

@@ -13,6 +13,7 @@ cd oh-my-term
 ./setup.sh bash vim screen # only the minimal tier
 ./setup.sh --list          # show the components
 ./setup.sh doctor          # check the install
+./setup.sh --dry-run       # show what an install would do, change nothing
 ```
 
 `setup.sh` is idempotent. Anything it would replace is moved aside to `<name>.bak.<timestamp>` first. Open a new terminal afterwards, or run `reload`.
@@ -55,9 +56,20 @@ Flags and environment variables:
 | `--offline` | `OMT_OFFLINE=1` | Never use the network, install from `vendor/` |
 | `--no-chsh` | `OMT_NO_CHSH=1` | Leave the login shell alone |
 | `--no-tools` | `OMT_SKIP_TOOLS=1` | Skip the `tools` component |
+| `--dry-run`, `-n` | | Print what would be linked, seeded, cloned or installed, and change nothing |
+| `--update` | | Pull this repository, then refresh Oh My Zsh and the zsh, tmux and Neovim plugins. Needs the network |
+| `--uninstall` | | Remove the links and put back the newest `.bak.<timestamp>` |
 | | `OMT_PLATFORM` | Force `macos`, `linux` or `unraid` |
 | | `OMT_GO_FILE` | Unraid boot script to edit, default `/boot/config/go` |
 | | `ZSH`, `ZSH_CUSTOM` | Oh My Zsh location, default `~/.oh-my-zsh` |
+
+### Previewing, updating and removing
+
+`--dry-run` combines with everything else, so `./setup.sh --dry-run zsh` shows the links and the downloads the zsh component would make, and `./setup.sh --uninstall --dry-run` shows what removal would do. Nothing is written, moved or downloaded.
+
+`./setup.sh --update` runs `git pull --ff-only` in this repository, starts again with the new `setup.sh`, then refreshes Oh My Zsh, the zsh and tmux plugins, vim-plug and the Neovim plugins. It stops if the pull cannot fast-forward. On a machine with no internet it refuses, because the same result comes from extracting a newer bundle and running `./setup.sh --offline`.
+
+`./setup.sh --uninstall` removes each link that points into this repository and restores the newest `<name>.bak.<timestamp>` for it. A path that is no longer one of our links is left alone. If the installer moved your own `~/.ssh/config` to `config.local`, it moves back when the shared config goes. Naming components limits it to those, and with no names it also removes `~/.config/oh-my-term`. Anything that was downloaded or that you may have edited stays: Oh My Zsh and its plugins, the Neovim and tmux plugins, starship, fzf, omp, `~/.gitconfig`, `~/.ssh/config.local` and `btop.conf`.
 
 ### Missing programs
 
