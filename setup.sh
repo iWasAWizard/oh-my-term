@@ -196,7 +196,8 @@ install_vim() {
 nvim_missing_plugins() {
     local out="$1"
 
-    nvim --headless -u "${config_home}/nvim/init.vim" \
+    # No log file and no shada file: listing the missing plugins must not write to ~/.local/state
+    NVIM_LOG_FILE=/dev/null nvim --headless -i NONE -u "${config_home}/nvim/init.vim" \
         -c "call writefile(filter(keys(g:plugs), '!isdirectory(g:plugs[v:val].dir)'), '${out}')" \
         -c 'qa!' </dev/null >/dev/null 2>&1 || true
 }

@@ -289,7 +289,8 @@ program_version() {
         bash) out="$(bash -c 'printf "%s.%s" "${BASH_VERSINFO[0]}" "${BASH_VERSINFO[1]}"' 2>/dev/null)" || true ;;
         zsh) out="$(zsh --version 2>&1 | head -n 1)" || true ;;
         tmux) out="$(tmux -V 2>&1 | head -n 1)" || true ;;
-        nvim) out="$(nvim --version 2>&1 | head -n 1)" || true ;;
+        # NVIM_LOG_FILE keeps nvim from creating ~/.local/state/nvim just to print its version
+        nvim) out="$(NVIM_LOG_FILE=/dev/null nvim --version 2>&1 | head -n 1)" || true ;;
         vim) out="$(vim --version 2>&1 | head -n 1)" || true ;;
         screen) out="$(screen --version 2>&1 | head -n 1)" || true ;;
         git) out="$(git --version 2>&1 | head -n 1)" || true ;;
