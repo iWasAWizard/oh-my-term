@@ -1,0 +1,25 @@
+# oh-my-term global git ignore, linked to ~/.config/git/ignore
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editors
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Local settings and secrets
+*.local
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/

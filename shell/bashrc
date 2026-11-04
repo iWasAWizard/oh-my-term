@@ -1,0 +1,95 @@
+# oh-my-term bashrc: the minimal tier. No plugins and no network, and it runs
+# on bash 3.2 (macOS) and up. Machine-specific settings go in ~/.bashrc.pre
+# (first) and ~/.bashrc.local (last).
+
+# Do nothing in non-interactive shells
+case $- in
+    *i*) ;;
+    *) return ;;
+esac
+
+[ -r "$HOME/.bashrc.pre" ] && . "$HOME/.bashrc.pre"
+
+OMT_HOME="${OMT_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/oh-my-term}"
+if [ -r "$OMT_HOME/shell/common.sh" ]; then
+    . "$OMT_HOME/shell/common.sh"
+else
+    echo "bashrc: $OMT_HOME/shell/common.sh not found (run setup.sh)" >&2
+fi
+
+# ---------------------------------------------------------------------------
+# History
+# ---------------------------------------------------------------------------
+HISTCONTROL=ignoreboth:erasedups   # no duplicates, no lines starting with a space
+HISTSIZE=100000
+HISTFILESIZE=200000
+HISTTIMEFORMAT='%F %T  '
+shopt -s histappend    # add to the history file instead of overwriting it
+shopt -s cmdhist       # keep multi-line commands as one history entry
+
+# ---------------------------------------------------------------------------
+# Shell options (the ones that need bash 4 are skipped quietly on older bash)
+# ---------------------------------------------------------------------------
+shopt -s checkwinsize
+shopt -s cdspell
+shopt -s autocd 2>/dev/null
+shopt -s dirspell 2>/dev/null
+shopt -s globstar 2>/dev/null
+
+# ---------------------------------------------------------------------------
+# Completion
+# ---------------------------------------------------------------------------
+if ! shopt -oq posix; then
+    if [ -n "${HOMEBREW_PREFIX:-}" ] && [ -r "$HOMEBREW_PREFIX/etc/profile.d/bash_completion.sh" ]; then
+        . "$HOMEBREW_PREFIX/etc/profile.d/bash_completion.sh"
+    elif [ -r /usr/share/bash-completion/bash_completion ]; then
+        . /usr/share/bash-completion/bash_completion
+    elif [ -r /etc/bash_completion ]; then
+        . /etc/bash_completion
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Prompt: starship when installed, otherwise a plain colored prompt
+# ---------------------------------------------------------------------------
+export VIRTUAL_ENV_DISABLE_PROMPT=1
+
+__omt_prompt() {
+    local rc=$?
+    local user_color='\[\e[1;32m\]'
+    local rc_part=''
+
+    history -a  # write each command to the history file right away
+    if [ "$(id -u)" = 0 ]; then
+        user_color='\[\e[1;31m\]'
+    fi
+    if [ "$rc" != 0 ]; then
+        rc_part="\[\e[31m\]${rc} \[\e[0m\]"
+    fi
+    PS1="\[\e]0;\u@\h: \w\a\]${rc_part}${VIRTUAL_ENV:+(${VIRTUAL_ENV##*/}) }${user_color}\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\\$ "
+}
+
+if omt_have starship; then
+    export STARSHIP_CONFIG="$OMT_HOME/shell/starship.toml"
+    eval "$(starship init bash)"
+else
+    PROMPT_COMMAND="__omt_prompt${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+fi
+
+# ---------------------------------------------------------------------------
+# fzf: Ctrl-R history, Ctrl-T files, Alt-C directories
+# ---------------------------------------------------------------------------
+if [ -f "$HOME/.fzf.bash" ]; then
+    . "$HOME/.fzf.bash"
+elif omt_have fzf && fzf --bash >/dev/null 2>&1; then
+    eval "$(fzf --bash)"
+elif [ -f /usr/share/doc/fzf/examples/key-bindings.bash ]; then
+    . /usr/share/doc/fzf/examples/key-bindings.bash
+elif [ -f /usr/share/fzf/key-bindings.bash ]; then
+    . /usr/share/fzf/key-bindings.bash
+fi
+
+alias reload='exec "$BASH"'
+alias bashrc='${EDITOR:-vi} ~/.bashrc'
+
+[ -r "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"

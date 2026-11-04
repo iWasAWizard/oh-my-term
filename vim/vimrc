@@ -1,0 +1,170 @@
+" oh-my-term vimrc: the minimal tier. No plugins and no network, so it works on
+" an airgapped box. Neovim loads this file first and adds plugins on top
+" (nvim/init.vim).
+"
+" Machine-specific settings: ~/.vimrc.pre (first) and ~/.vimrc.local (last).
+
+set nocompatible
+
+if filereadable(expand('~/.vimrc.pre'))
+    source ~/.vimrc.pre
+endif
+
+let g:omt_theme = get(g:, 'omt_theme', 'omt-nord')
+let g:omt_truecolor = get(g:, 'omt_truecolor', $COLORTERM =~# 'truecolor\|24bit')
+
+filetype plugin indent on
+syntax enable
+
+" ---------------------------------------------------------------------------
+" Basics
+" ---------------------------------------------------------------------------
+set encoding=utf-8
+set nobackup
+set hidden
+set number
+set showcmd
+set ruler
+set laststatus=2
+set cursorline
+set scrolloff=3
+set wildmenu
+set wrap
+set linebreak
+set splitbelow
+set splitright
+set backspace=indent,eol,start
+set noerrorbells visualbell t_vb=
+set updatetime=250
+set timeoutlen=400
+set ttimeout ttimeoutlen=50
+set foldmethod=indent
+set foldlevelstart=99
+set incsearch hlsearch ignorecase smartcase
+set expandtab tabstop=4 softtabstop=4 shiftwidth=4 autoindent
+set display+=lastline
+if has('persistent_undo')
+    let s:undo_dir = has('nvim') ? stdpath('state') . '/undo' : expand('~/.vim/undo')
+    if !isdirectory(s:undo_dir)
+        silent! call mkdir(s:undo_dir, 'p', 0700)
+    endif
+    if isdirectory(s:undo_dir)
+        let &undodir = s:undo_dir
+        set undofile
+    endif
+endif
+
+" netrw as the file tree, in place of a plugin
+let g:netrw_banner = 0
+let g:netrw_liststyle = 3
+let g:netrw_winsize = 25
+
+" ---------------------------------------------------------------------------
+" Trailing whitespace: shown in red, stripped on save
+" ---------------------------------------------------------------------------
+augroup omt_whitespace
+    autocmd!
+    autocmd ColorScheme * highlight ExtraWhitespace ctermbg=red guibg=red
+    autocmd BufWinEnter * match ExtraWhitespace /\s\+$/
+    autocmd InsertEnter * match ExtraWhitespace /\s\+\%#\@<!$/
+    autocmd InsertLeave * match ExtraWhitespace /\s\+$/
+    autocmd BufWritePre * call s:StripTrailingWhitespace()
+augroup END
+
+function! s:StripTrailingWhitespace() abort
+    if &binary || !&modifiable || &filetype =~# '\v^(markdown|diff)$'
+        return
+    endif
+    let l:view = winsaveview()
+    let l:search = @/
+    silent! %s/\s\+$//e
+    let @/ = l:search
+    call winrestview(l:view)
+endfunction
+
+" ---------------------------------------------------------------------------
+" Colors
+" ---------------------------------------------------------------------------
+if g:omt_truecolor && has('termguicolors')
+    if &term =~# '^\(screen\|tmux\)'
+        let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
+        let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
+    endif
+    set termguicolors
+endif
+
+set background=dark
+try
+    execute 'colorscheme ' . g:omt_theme
+catch
+    colorscheme default
+endtry
+
+" ---------------------------------------------------------------------------
+" Mouse and clipboard
+" Dragging selects with vim itself, so line numbers are never included, and
+" letting go of the mouse copies the selection.
+" ---------------------------------------------------------------------------
+if has('mouse')
+    set mouse=a
+endif
+silent! set ttymouse=sgr
+
+" Over SSH, or without +clipboard, send yanks to the local terminal with OSC52
+let s:use_osc52 = !empty($SSH_TTY) || !has('clipboard')
+
+if !s:use_osc52
+    if has('macunix')
+        set clipboard^=unnamed
+    elseif has('unnamedplus')
+        set clipboard^=unnamedplus
+    else
+        set clipboard^=unnamed
+    endif
+endif
+
+function! s:Osc52Yank() abort
+    if v:event.operator !=# 'y'
+        return
+    endif
+    let l:text = join(v:event.regcontents, "\n")
+    if v:event.regtype ==# 'V'
+        let l:text .= "\n"
+    endif
+    let l:b64 = substitute(system('base64', l:text), '\n', '', 'g')
+    let l:seq = "\e]52;c;" . l:b64 . "\x07"
+    if !empty($TMUX)
+        let l:seq = "\ePtmux;" . substitute(l:seq, "\e", "\e\e", 'g') . "\e\\"
+    endif
+    call writefile([l:seq], '/dev/tty', 'b')
+endfunction
+
+if s:use_osc52 && exists('##TextYankPost')
+    augroup omt_osc52
+        autocmd!
+        autocmd TextYankPost * call s:Osc52Yank()
+    augroup END
+endif
+
+" Copy on mouse release and keep the selection visible
+vnoremap <silent> <LeftRelease> ygv
+
+" ---------------------------------------------------------------------------
+" Mappings
+" ---------------------------------------------------------------------------
+let mapleader = ' '
+
+nnoremap <leader>n :Lexplore<CR>
+nnoremap ]b :bnext<CR>
+nnoremap [b :bprevious<CR>
+nnoremap <leader>/ :nohlsearch<CR>
+nnoremap <C-s> :w<CR>
+nnoremap <space> za
+inoremap jj <Esc>
+
+" ---------------------------------------------------------------------------
+" Local overrides. Neovim sets g:omt_layered and sources this file itself, last.
+" ---------------------------------------------------------------------------
+if !get(g:, 'omt_layered', 0) && filereadable(expand('~/.vimrc.local'))
+    source ~/.vimrc.local
+endif

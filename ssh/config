@@ -1,0 +1,21 @@
+# oh-my-term ssh config, linked to ~/.ssh/config. It holds no hosts, keys or
+# addresses. Those go in ~/.ssh/config.local, which is read first so that your
+# per-host settings win (ssh uses the first value it finds for each option).
+Include ~/.ssh/config.local
+
+Host *
+    # Keep idle sessions alive through NAT and firewalls, and notice dead ones
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+
+    # Reuse one connection per host: repeated ssh, scp and git calls are instant
+    ControlMaster auto
+    ControlPath ~/.ssh/cm/%C
+    ControlPersist 10m
+
+    AddKeysToAgent yes
+    HashKnownHosts yes
+
+    # macOS keychain support. IgnoreUnknown stops other systems from erroring on it.
+    IgnoreUnknown UseKeychain
+    UseKeychain yes

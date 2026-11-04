@@ -1,0 +1,19 @@
+# Example custom provider for oh-my-pi (omp). Copy this to ~/.omp/agent/models.yml
+# and edit it. omp rewrites its own settings, so setup.sh does not link this file.
+#
+# This points omp at any OpenAI-compatible server, such as llama.cpp's llama-server.
+# Use the address of your own machine. The apiKey can be any non-empty string for
+# a server that does not check it.
+
+providers:
+  local:
+    baseUrl: http://localhost:8080/v1
+    api: openai-completions
+    apiKey: dummy
+    models:
+      - id: your-model-name
+
+# Then pick it as the default model in ~/.omp/agent/config.yml:
+#
+#   modelRoles:
+#     default: local/your-model-name

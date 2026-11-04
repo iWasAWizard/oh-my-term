@@ -1,0 +1,15 @@
+# oh-my-term ripgrep defaults, picked up through RIPGREP_CONFIG_PATH (shell/common.sh).
+# Colors use the ANSI names so they follow the terminal palette (Nord).
+
+--smart-case
+--hidden
+--glob=!.git/*
+--max-columns=300
+--max-columns-preview
+
+--colors=path:fg:cyan
+--colors=path:style:bold
+--colors=line:fg:green
+--colors=column:fg:green
+--colors=match:fg:red
+--colors=match:style:bold

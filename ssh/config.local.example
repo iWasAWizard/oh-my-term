@@ -1,0 +1,19 @@
+# ~/.ssh/config.local: your hosts, copied here by setup.sh from the example.
+# This file stays on the machine and is never committed. Entries here win over
+# the defaults in the shared config.
+
+# Host build
+#     HostName 192.0.2.10
+#     User you
+#     IdentityFile ~/.ssh/id_ed25519
+
+# Old network gear and appliances often only speak legacy algorithms that
+# current OpenSSH turns off. Enable them for those hosts only, never globally.
+# Host legacy-switch
+#     HostName 192.0.2.20
+#     User manager
+#     KexAlgorithms +diffie-hellman-group1-sha1,diffie-hellman-group14-sha1
+#     HostKeyAlgorithms +ssh-rsa
+#     PubkeyAcceptedAlgorithms +ssh-rsa
+#     Ciphers +aes128-cbc,aes256-cbc
+#     ControlMaster no
