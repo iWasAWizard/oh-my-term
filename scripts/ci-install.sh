@@ -44,6 +44,7 @@ count_backups() {
     find "$HOME" -maxdepth 4 -name '*.bak.*' -not -path "${HOME}/Library/*" 2>/dev/null | wc -l | tr -d ' '
 }
 
+# shellcheck disable=SC2016 # $BASH_VERSION must expand in the bash being tested, not here
 printf 'bash for setup.sh: %s\n' "$("$bash_bin" -c 'printf %s "$BASH_VERSION"')"
 
 log "First install"

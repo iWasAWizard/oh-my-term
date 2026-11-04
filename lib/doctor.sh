@@ -28,6 +28,7 @@ doc_report() {
 
 # doc_path PATH: PATH with $HOME shortened to ~
 doc_path() {
+    # shellcheck disable=SC2088 # a literal ~ is what we want to print
     case "$1" in
         "$HOME"/*) printf '~/%s' "${1#"$HOME"/}" ;;
         *) printf '%s' "$1" ;;
