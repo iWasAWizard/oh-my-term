@@ -1,0 +1,37 @@
+# What scripts/vendor.sh puts in vendor/. One entry per line:
+#
+#   repo DEST GIT_URL COMMIT_SHA     a repository, checked out at that commit
+#   file DEST URL SHA256             a file, which must hash to that value
+#
+# DEST is relative to vendor/. Do not edit by hand. Refresh with
+# ./scripts/vendor.sh --update, then read the diff before committing it: every
+# changed line is code that will run on your machines.
+
+repo oh-my-zsh https://github.com/ohmyzsh/ohmyzsh.git b509b1c6ed0c1ba37de12cbd37f30b2b2f61193a
+repo zsh-autosuggestions https://github.com/zsh-users/zsh-autosuggestions.git 85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5
+repo zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting.git e6683f20e5c38d3e5447f45845d04ddda75d0f23
+repo tmux-plugins/tmux-resurrect https://github.com/tmux-plugins/tmux-resurrect.git cff343cf9e81983d3da0c8562b01616f12e8d548
+repo tmux-plugins/tmux-continuum https://github.com/tmux-plugins/tmux-continuum.git 0698e8f4b17d6454c71bf5212895ec055c578da0
+repo plugged/nerdtree https://github.com/preservim/nerdtree.git 690d061b591525890f1471c6675bcb5bdc8cdff9
+repo plugged/vim-airline https://github.com/vim-airline/vim-airline.git 8dc1bd0a116de527f6bc58c1d04386ba357c624f
+repo plugged/vim-fugitive https://github.com/tpope/vim-fugitive.git 3b753cf8c6a4dcde6edee8827d464ba9b8c4a6f0
+repo plugged/vim-gitgutter https://github.com/airblade/vim-gitgutter.git 90b75207bd9b55d8ac4af15f72b4e935462014d0
+repo plugged/vim-surround https://github.com/tpope/vim-surround.git 3d188ed2113431cf8dac77be61b842acb64433d9
+repo plugged/vim-commentary https://github.com/tpope/vim-commentary.git 64a654ef4a20db1727938338310209b6a63f60c9
+repo plugged/auto-pairs https://github.com/jiangmiao/auto-pairs.git 39f06b873a8449af8ff6a3eee716d3da14d63a76
+repo plugged/vim-move https://github.com/matze/vim-move.git 267fd1cff61fc643dfb5f9b188c434906f5214aa
+repo plugged/tagbar https://github.com/preservim/tagbar.git 07cb8247487208124978daff8e13624667635457
+repo plugged/ctrlsf.vim https://github.com/dyng/ctrlsf.vim.git 39db9af4d26a91a8a6261c66ffb624f8b3d29114
+repo plugged/vim-fswitch https://github.com/derekwyatt/vim-fswitch.git 94acdd8bc92458d3bf7e6557df8d93b533564491
+repo plugged/fzf https://github.com/junegunn/fzf.git 99bfd5aa0f66133d7dcfbf18f8044eb765f04649
+repo plugged/fzf.vim https://github.com/junegunn/fzf.vim.git 023de3c0e158ff9c2b0992175af10be97c2f2158
+repo plugged/vim-rooter https://github.com/airblade/vim-rooter.git 51402fb77c4d6ae94994e37dc7ca13bec8f4afcc
+repo plugged/vim-polyglot https://github.com/sheerun/vim-polyglot.git f061eddb7cdcc614c8406847b2bfb53099832a4e
+repo plugged/ale https://github.com/dense-analysis/ale.git 422c0e8ef42e2315a5b58dc281fccc59b816c37a
+repo plugged/editorconfig-vim https://github.com/editorconfig/editorconfig-vim.git c0227885a06b155d5aa5465e08b9800e8c939f70
+repo plugged/nord https://github.com/nordtheme/vim.git f13f5dfbb784deddbc1d8195f34dfd9ec73e2295
+file vim-plug/plug.vim https://raw.githubusercontent.com/junegunn/vim-plug/7e5aae5e1187842cb0b1d8def986e48d481c4410/plug.vim 4243c1d2a5d9a1012aca536315e69aab8549e60926b3dd80ee1f973954d77f9d
+file bin/starship-x86_64-unknown-linux-musl.tar.gz https://github.com/starship/starship/releases/download/v1.27.0/starship-x86_64-unknown-linux-musl.tar.gz 10c8eb4cb3b761d9bf59ea828444c2dab36c900b7d69a69e08814b286969df89
+file bin/starship-aarch64-unknown-linux-musl.tar.gz https://github.com/starship/starship/releases/download/v1.27.0/starship-aarch64-unknown-linux-musl.tar.gz 341f5cbf24699fa0b27ec88965ad25f862ea09e15d35a543fd6ffdff1d2aa00d
+file bin/starship-aarch64-apple-darwin.tar.gz https://github.com/starship/starship/releases/download/v1.27.0/starship-aarch64-apple-darwin.tar.gz 5362da8cb2928f98f3ce0ffda697cf0f8de70081db000dae316d6d3a404f6cf0
+file bin/starship-x86_64-apple-darwin.tar.gz https://github.com/starship/starship/releases/download/v1.27.0/starship-x86_64-apple-darwin.tar.gz 344e4d38787e0aa86dd522ae5462e6fb6da1227691f81a79ffed480a4563ccb3

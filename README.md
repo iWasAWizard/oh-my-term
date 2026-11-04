@@ -88,9 +88,38 @@ On a machine that has internet, from inside the repository:
 ./scripts/vendor.sh
 ```
 
-This fills `vendor/` with Oh My Zsh, the zsh plugins, the tmux plugins, vim-plug, every neovim plugin listed in `nvim/init.vim`, and starship builds for Linux and macOS on x86_64 and arm64 (checked against their published sha256). `vendor/` is ignored by git.
+This fills `vendor/` with Oh My Zsh, the zsh plugins, the tmux plugins, vim-plug, every neovim plugin listed in `nvim/init.vim`, and starship builds for Linux and macOS on x86_64 and arm64. `vendor/` is ignored by git.
 
-Copy the whole directory to the other machine, for example with `tar`, and run:
+Everything is pinned in `vendor.lock`, which is checked in: a commit SHA for each repository and a sha256 for each download. `vendor.sh` fetches exactly those commits and refuses a file that does not hash to its pin, so two runs a month apart give the same bytes, and the starship checksum no longer comes from the same place as the tarball.
+
+| Command | What it does |
+| --- | --- |
+| `./scripts/vendor.sh` | Fetch what `vendor.lock` pins. Items already at their pin are left alone |
+| `./scripts/vendor.sh --update` | Look up the latest commits and the latest starship release, and rewrite `vendor.lock` |
+| `./scripts/vendor.sh --verify` | Check `vendor/` against `vendor.lock` without the network. Files are re-hashed. Repositories are checked against the pin recorded when they were fetched, because the copies have no `.git` directory |
+| `./scripts/vendor.sh --check-lock` | Check that `vendor.lock` is well formed and covers every repository `setup.sh` installs, including each plugin in `nvim/init.vim` |
+
+`--update` only rewrites the lock, so the new versions show up as a diff. Read `git diff vendor.lock` before you commit it, since each changed line is code that will run on your machines. The pins are as trustworthy as what you saw when you accepted them: the first lock was taken from the upstream repositories as they were that day.
+
+### One file for the transfer
+
+`scripts/bundle.sh` turns that into a single archive you can check on arrival. It fills `vendor/` from `vendor.lock`, then writes `dist/oh-my-term-<commit>.tar.gz` and a `.sha256` beside it. The archive holds the tracked files of the repository, `vendor/`, and three extra files: `MANIFEST.sha256` (the sha256 of every file), `MANIFEST.links` (every symlink and its target) and `BUNDLE` (the commit and the lock hash it was built from). It refuses to build from a tree with uncommitted changes unless you pass `--allow-dirty`.
+
+On the other machine:
+
+```sh
+shasum -a 256 -c oh-my-term-<commit>.tar.gz.sha256   # sha256sum -c on Linux
+tar -xzf oh-my-term-<commit>.tar.gz
+cd oh-my-term
+./scripts/bundle.sh --verify
+./setup.sh --offline
+```
+
+`--verify` re-hashes every file and fails on a changed or missing file, a file the manifest does not list, or a symlink that points somewhere else. It needs only `sha256sum` or `shasum`, `find`, `sort`, `awk` and `comm`, so it runs on the isolated machine. File modes are not checked. The tarball is not byte-for-byte reproducible, since it records timestamps, but the manifest is.
+
+The manifest travels inside the archive, so it catches corruption and edits made in transit. It cannot catch a swapped archive, because whoever swaps it can swap the manifest too. Write down the sha256 that `bundle.sh` prints on the machine you built it on, and compare it by another route.
+
+Without the bundle, copy the whole directory to the other machine, for example with `tar`, and run:
 
 ```sh
 ./setup.sh --offline
@@ -177,7 +206,8 @@ screen stays in the minimal tier because it handles serial consoles (`screen /de
 setup.sh            installer
 lib/install.sh      helpers used by setup.sh and scripts/vendor.sh
 lib/doctor.sh       the checks behind setup.sh doctor
-scripts/            vendor.sh (fill vendor/), check-theme.sh, smoke.sh, ci-install.sh
+scripts/            vendor.sh (fill vendor/), bundle.sh (one archive), check-theme.sh, smoke.sh, ci-install.sh
+vendor.lock         pins for everything vendor.sh downloads
 shell/              bashrc, zshrc, common.sh, inputrc, starship.toml
 vim/  nvim/         vimrc and colorscheme, init.vim
 screen/  tmux/      screenrc, tmux.conf
