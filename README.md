@@ -173,7 +173,7 @@ screen stays in the minimal tier because it handles serial consoles (`screen /de
 setup.sh            installer
 lib/install.sh      helpers used by setup.sh and scripts/vendor.sh
 lib/doctor.sh       the checks behind setup.sh doctor
-scripts/            vendor.sh (fill vendor/), check-theme.sh
+scripts/            vendor.sh (fill vendor/), check-theme.sh, smoke.sh, ci-install.sh
 shell/              bashrc, zshrc, common.sh, inputrc, starship.toml
 vim/  nvim/         vimrc and colorscheme, init.vim
 screen/  tmux/      screenrc, tmux.conf
@@ -190,6 +190,20 @@ vendor/             downloads for offline installs (git-ignored)
 - Oh My Zsh installed from `vendor/` has no `.git` directory, so its self-update is switched off for that install.
 - Shell prompts use Unicode box characters and `㉿`. The terminal font needs to have them.
 - No chezmoi. Symlinks cover the one-user, few-machine case and work on the airgapped boxes. If the number of machines grows or you want per-host templating, chezmoi can read this repository as its source later.
+
+## Testing
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request:
+
+- shellcheck, a no-tabs check and `scripts/check-theme.sh`.
+- A full install in fresh Debian 13, Ubuntu 24.04 and Alpine 3.22 containers, and on `macos-latest` with `/bin/bash` (bash 3.2). Each one installs twice and fails if the second run creates backup files, then runs `setup.sh doctor` and `scripts/smoke.sh`. `oh-my-pi` is linked but not installed.
+- A minimal-tier install (bash, vim, screen, no network) that checks `doctor` reports the minimal tier.
+
+To run the install test yourself, use a throwaway home, because it writes there:
+
+```sh
+HOME="$(mktemp -d)" ./scripts/ci-install.sh
+```
 
 ## License
 
