@@ -52,10 +52,11 @@ run() {
 # PATH.bak.<timestamp>, with .1, .2 and so on added when two backups land in the same second.
 # The names still sort oldest first, which unlink_file relies on.
 backup_name() {
-    local base="${1}.bak.$(timestamp)"
-    local name="$base"
+    local base name
     local n=0
 
+    base="${1}.bak.$(timestamp)"
+    name="$base"
     while [ -e "$name" ] || [ -L "$name" ]; do
         n=$((n + 1))
         name="${base}.${n}"

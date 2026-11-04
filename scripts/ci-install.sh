@@ -120,7 +120,9 @@ log "--update pulls a new commit from a real remote and restarts with it"
 # dist/, which also lets it run from an extracted bundle that is not a git checkout.
 upd="$(mktemp -d)"
 mkdir "${upd}/seed"
-(cd "$repo_root" && tar --exclude=.git --exclude=vendor --exclude=dist -cf - .) | tar -C "${upd}/seed" -xf -
+# --no-same-owner: as root (the Linux containers) tar would keep the checkout's owner, and git then
+# refuses the copy as "dubious ownership"
+(cd "$repo_root" && tar --exclude=.git --exclude=vendor --exclude=dist -cf - .) | tar --no-same-owner -C "${upd}/seed" -xf -
 ci_git() {
     git -c user.name=ci -c user.email=ci@example.invalid "$@"
 }
