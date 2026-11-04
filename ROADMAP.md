@@ -53,10 +53,7 @@ All three are done.
 
 ## Priority 3: installer features
 
-- `setup.sh --dry-run`, to print what would be linked, seeded or installed.
-- `setup.sh --uninstall`, which is easy because everything is a symlink. It should restore the newest `.bak.<timestamp>` when one exists.
-- `setup.sh --update`, to pull the repository and refresh plugins. Offline machines get the same result from a new bundle.
-- Cosmetic: the Unraid go-file line has a double space in the component list.
+Done: `setup.sh --dry-run`, `--uninstall` and `--update`, and the double space in the Unraid go-file line. CI checks that a dry run creates no files, that `--update` refuses offline, and that an install followed by `--uninstall` restores the files that were there before and leaves no link into the repository. Not covered: `--update` against a real remote in CI, and `--uninstall` on a machine with several `.bak` generations of the same file.
 
 ## Priority 4: content
 
