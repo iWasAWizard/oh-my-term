@@ -149,3 +149,115 @@ verify_sha256() {
     got="$(sha256_of "$file")"
     [ -n "$want" ] && [ "$want" = "$got" ]
 }
+
+# ---------------------------------------------------------------------------
+# programs: what the configs need, and what you get without it. Used by the
+# missing-programs report at the end of setup.sh and by setup.sh doctor.
+# ---------------------------------------------------------------------------
+
+# program_min NAME: the oldest major.minor the config supports, or nothing
+program_min() {
+    case "$1" in
+        bash) printf '3.2\n' ;;
+        zsh) printf '5.0\n' ;;
+        tmux) printf '3.0\n' ;;
+        nvim) printf '0.9\n' ;;
+    esac
+}
+
+# program_alt NAME: where setup.sh puts the program when it is not on PATH
+program_alt() {
+    case "$1" in
+        starship | autopep8) printf '%s/.local/bin/%s\n' "$HOME" "$1" ;;
+        fzf) printf '%s/.fzf/bin/fzf\n' "$HOME" ;;
+        omp) printf '%s/.bun/bin/omp\n' "$HOME" ;;
+    esac
+}
+
+# program_fallback NAME: what you get without the program
+program_fallback() {
+    case "$1" in
+        bash) printf 'the installer and the bash config need it\n' ;;
+        zsh) printf 'the zsh config is skipped, bash is used\n' ;;
+        tmux) printf 'screen is used instead\n' ;;
+        nvim) printf 'vim is used instead, without plugins\n' ;;
+        vim) printf 'no editor config applies\n' ;;
+        screen) printf 'no terminal multiplexer config applies\n' ;;
+        git) printf 'nothing can be cloned or updated\n' ;;
+        gdb) printf 'the gdbinit is linked but there is no gdb to read it\n' ;;
+        ssh) printf 'the ssh config is linked but there is no ssh to read it\n' ;;
+        starship) printf 'bash and zsh use their plain prompts\n' ;;
+        fzf) printf 'fuzzy history and file search are skipped\n' ;;
+        omp) printf 'oh-my-pi is not available (see the pi component)\n' ;;
+        autopep8) printf 'Python fixing in Neovim is skipped\n' ;;
+        *) printf 'the config for it has nothing to run\n' ;;
+    esac
+}
+
+# program_version NAME: prints major.minor, or nothing if it cannot be read
+program_version() {
+    local out=""
+
+    case "$1" in
+        bash) out="$(bash -c 'printf "%s.%s" "${BASH_VERSINFO[0]}" "${BASH_VERSINFO[1]}"' 2>/dev/null)" || true ;;
+        zsh) out="$(zsh --version 2>&1 | head -n 1)" || true ;;
+        tmux) out="$(tmux -V 2>&1 | head -n 1)" || true ;;
+        nvim) out="$(nvim --version 2>&1 | head -n 1)" || true ;;
+        vim) out="$(vim --version 2>&1 | head -n 1)" || true ;;
+        screen) out="$(screen --version 2>&1 | head -n 1)" || true ;;
+        git) out="$(git --version 2>&1 | head -n 1)" || true ;;
+    esac
+    printf '%s\n' "$out" | sed -n 's/^[^0-9]*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -n 1
+}
+
+# version_ge HAVE WANT: both are major.minor
+version_ge() {
+    local have_major="${1%%.*}"
+    local have_minor="${1#*.}"
+    local want_major="${2%%.*}"
+    local want_minor="${2#*.}"
+
+    [ "$have_major" -gt "$want_major" ] && return 0
+    [ "$have_major" -eq "$want_major" ] && [ "$have_minor" -ge "$want_minor" ]
+}
+
+# program_usable NAME: installed (on PATH or at its program_alt) and at least
+# program_min. A version that cannot be read counts as usable.
+program_usable() {
+    local name="$1"
+    local min alt ver
+
+    if ! have "$name"; then
+        alt="$(program_alt "$name")"
+        [ -n "$alt" ] && [ -x "$alt" ]
+        return
+    fi
+    min="$(program_min "$name")"
+    [ -z "$min" ] && return 0
+    ver="$(program_version "$name")"
+    [ -z "$ver" ] || version_ge "$ver" "$min"
+}
+
+# install_hint NAME: a command that installs the program on this machine, or nothing
+install_hint() {
+    local name="$1"
+    local pkg="$1"
+    local sudo=""
+
+    case "$name" in
+        omp) printf 'bun install -g @oh-my-pi/pi-coding-agent\n'; return 0 ;;
+        nvim) pkg="neovim" ;;
+    esac
+    [ "$(id -u)" = "0" ] || sudo="sudo "
+    if have brew; then
+        printf 'brew install %s\n' "$pkg"
+    elif have apt-get; then
+        printf '%sapt install %s\n' "$sudo" "$pkg"
+    elif have apk; then
+        printf 'apk add %s\n' "$pkg"
+    elif have dnf; then
+        printf '%sdnf install %s\n' "$sudo" "$pkg"
+    elif have pacman; then
+        printf '%spacman -S %s\n' "$sudo" "$pkg"
+    fi
+}

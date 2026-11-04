@@ -14,7 +14,7 @@ Handoff notes for continuing work in Claude Code. The first version is built and
 
 ## What was tested
 
-Linux only, using fake `$HOME` directories in a container:
+Linux, using fake `$HOME` directories in a container:
 
 - nvim 0.9.5 with and without plugins, including the theme fallback
 - tmux 3.4 (config loads without errors, key bindings), screen 4.09, gdb 15.1, git
@@ -22,28 +22,33 @@ Linux only, using fake `$HOME` directories in a container:
 - `setup.sh` with every component, the offline path with the network cut after `vendor.sh`, and the Unraid go-file edit including re-runs
 - omp 18.16.0 installed with bun
 
+CI (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request:
+
+- shellcheck, a no-tabs check and `scripts/check-theme.sh`
+- a full install, a second install that must create no backups, `setup.sh doctor` and `scripts/smoke.sh` in Debian 13, Ubuntu 24.04 and Alpine 3.22 containers, and on `macos-latest` with `/bin/bash` (bash 3.2). `ssh -G` runs against the shipped ssh config as part of `doctor`.
+- a minimal-tier install (bash, vim, screen) offline, which checks `doctor` reports the minimal tier and the missing-programs report names what is missing
+
+Alpine has no bash by default and `setup.sh` needs it, so that job installs bash first. The bash requirement does bite there, by design.
+
 ## What was not tested
 
-- Real macOS, including bash 3.2 itself. The constraint is met by avoiding newer syntax and by shellcheck, not by a run.
 - A physical Unraid box. It is also unverified what a current Unraid release ships. As far as I know it has neither zsh nor neovim.
-- The ssh config, because the container had no ssh client. `ssh -G somehost` would validate it.
 - Real terminal apps importing the files in `theme/emulator/`.
+- CI installs oh-my-pi by linking only. The `omp` install itself is not run.
 
 ## Priority 1: close the testing gaps
 
-1. GitHub Actions workflow.
-   - Run shellcheck and `scripts/check-theme.sh`.
-   - Run `setup.sh` in fresh Debian, Ubuntu and Alpine containers. Alpine will show whether the bash requirement bites.
-   - Run `setup.sh` on `macos-latest`.
-   - Run `ssh -G` against the shipped ssh config.
-2. Done: `./setup.sh doctor` (`lib/doctor.sh`). It checks every link, reports tool versions against the minimums (tmux 3.0, neovim 0.9, bash 3.2, zsh 5.0), runs `ssh -G` against the config, and says which tier the machine runs. Run on macOS with bash 3.2 and a fake `$HOME`. Not yet run on Linux, and not run under shellcheck.
-3. Missing-programs report at the end of `setup.sh`, for machines where zsh, nvim, tmux or starship are not installed. Print exactly what is missing and what you get without it. The Programs and Tier sections of `doctor` already hold this text, so the report can reuse them.
+All three are done.
+
+1. GitHub Actions workflow, described above.
+2. `./setup.sh doctor` (`lib/doctor.sh`). It checks every link, reports tool versions against the minimums (tmux 3.0, neovim 0.9, bash 3.2, zsh 5.0), runs `ssh -G` against the config, and says which tier the machine runs.
+3. Missing-programs report at the end of `setup.sh`. It lists the programs the chosen components use that are missing or too old, what you get without each, and an install command when it knows the package manager. The text lives in `lib/install.sh` (`program_fallback` and friends) and is shared with `doctor`.
 
 ## Priority 2: airgap and supply chain
 
 1. Pin `scripts/vendor.sh`. It currently clones HEAD of every repository and downloads starship `latest`. Add a lockfile of commit SHAs and tarball sha256 values, checked into the repository, so bundles are reproducible and refreshes show up as a reviewable diff. The starship checksum is fetched from the same release as the tarball, so it catches corruption but not tampering.
 2. `scripts/bundle.sh`. Run `vendor.sh`, tar the repository plus `vendor/`, and write a sha256 manifest. The transfer to an isolated machine becomes one file that can be verified on arrival.
-3. Programs on airgapped machines. `vendor.sh` carries configs and plugins and starship, but not zsh, neovim or tmux. Options are static builds of nvim and tmux in `vendor/bin`, or relying on the missing-programs report from priority 1.
+3. Programs on airgapped machines. `vendor.sh` carries configs and plugins and starship, but not zsh, neovim or tmux. Options are static builds of nvim and tmux in `vendor/bin`, or relying on the missing-programs report, which already says what is missing.
 4. ALE linters and fixers. `nvim/init.vim` configures flake8, pylint, shellcheck, hadolint, yamllint, shfmt and autopep8. Only autopep8 is installed by the `tools` component, so the rest fail quietly. Either install them, vendor them, or trim the config to what is present.
 
 ## Priority 3: installer features

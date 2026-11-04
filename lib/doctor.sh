@@ -35,79 +35,43 @@ doc_path() {
     esac
 }
 
-# doc_version PROGRAM: prints major.minor, or nothing if it cannot be read
-doc_version() {
-    local out=""
-
-    case "$1" in
-        bash) out="$(bash -c 'printf "%s.%s" "${BASH_VERSINFO[0]}" "${BASH_VERSINFO[1]}"' 2>/dev/null)" || true ;;
-        zsh) out="$(zsh --version 2>&1 | head -n 1)" || true ;;
-        tmux) out="$(tmux -V 2>&1 | head -n 1)" || true ;;
-        nvim) out="$(nvim --version 2>&1 | head -n 1)" || true ;;
-        vim) out="$(vim --version 2>&1 | head -n 1)" || true ;;
-        screen) out="$(screen --version 2>&1 | head -n 1)" || true ;;
-        git) out="$(git --version 2>&1 | head -n 1)" || true ;;
-    esac
-    printf '%s\n' "$out" | sed -n 's/^[^0-9]*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -n 1
-}
-
-# doc_version_ge HAVE WANT: both are major.minor
-doc_version_ge() {
-    local have_major="${1%%.*}"
-    local have_minor="${1#*.}"
-    local want_major="${2%%.*}"
-    local want_minor="${2#*.}"
-
-    [ "$have_major" -gt "$want_major" ] && return 0
-    [ "$have_major" -eq "$want_major" ] && [ "$have_minor" -ge "$want_minor" ]
-}
-
-# doc_usable PROGRAM MIN: installed and at least MIN (an unreadable version counts)
-doc_usable() {
-    local ver
-
-    have "$1" || return 1
-    ver="$(doc_version "$1")"
-    [ -z "$ver" ] || doc_version_ge "$ver" "$2"
-}
-
-# doc_tool PROGRAM MIN FALLBACK
-# MIN may be empty. FALLBACK says what you get without the program.
+# doc_tool PROGRAM
+# Checks the version against program_min, and says what you get without it.
 doc_tool() {
     local name="$1"
-    local min="$2"
-    local fallback="$3"
-    local ver
+    local min fallback ver
 
+    min="$(program_min "$name")"
+    fallback="$(program_fallback "$name")"
     if ! have "$name"; then
         doc_report warn "${name} is not installed: ${fallback}"
         return 0
     fi
-    ver="$(doc_version "$name")"
+    ver="$(program_version "$name")"
     if [ -z "$ver" ]; then
         doc_report warn "${name} is installed ($(command -v "$name")) but its version could not be read"
     elif [ -z "$min" ]; then
         doc_report ok "${name} ${ver}"
-    elif doc_version_ge "$ver" "$min"; then
+    elif version_ge "$ver" "$min"; then
         doc_report ok "${name} ${ver} (needs ${min})"
     else
         doc_report fail "${name} ${ver} is older than the ${min} this config needs: ${fallback}"
     fi
 }
 
-# doc_optional PROGRAM ALT_PATH FALLBACK
-# ALT_PATH is where setup.sh puts the program when it is not on PATH.
+# doc_optional PROGRAM
+# A program the shells skip when it is missing. Also looks where setup.sh puts it.
 doc_optional() {
     local name="$1"
-    local alt="$2"
-    local fallback="$3"
+    local alt
 
+    alt="$(program_alt "$name")"
     if have "$name"; then
         doc_report ok "${name} ($(command -v "$name"))"
-    elif [ -x "$alt" ]; then
+    elif [ -n "$alt" ] && [ -x "$alt" ]; then
         doc_report ok "${name} ($(doc_path "$alt"), not on PATH in this shell)"
     else
-        doc_report info "${name} is not installed: ${fallback}"
+        doc_report info "${name} is not installed: $(program_fallback "$name")"
     fi
 }
 
@@ -285,17 +249,17 @@ doc_check_pi() {
 
 doc_programs() {
     printf '\nPrograms\n'
-    doc_tool bash 3.2 "the installer and the bash config need it"
-    doc_tool zsh 5.0 "the zsh config is skipped, bash is used"
-    doc_tool tmux 3.0 "screen is used instead"
-    doc_tool nvim 0.9 "vim is used instead, without plugins"
-    doc_tool vim "" "no editor config applies"
-    doc_tool screen "" "no terminal multiplexer config applies"
-    doc_tool git "" "nothing can be cloned or updated"
-    doc_optional starship "${HOME}/.local/bin/starship" "bash and zsh use their plain prompts"
-    doc_optional fzf "${HOME}/.fzf/bin/fzf" "fuzzy history and file search are skipped"
-    doc_optional omp "" "oh-my-pi is not available (see the pi component)"
-    doc_optional autopep8 "${HOME}/.local/bin/autopep8" "Python fixing in Neovim is skipped"
+    doc_tool bash
+    doc_tool zsh
+    doc_tool tmux
+    doc_tool nvim
+    doc_tool vim
+    doc_tool screen
+    doc_tool git
+    doc_optional starship
+    doc_optional fzf
+    doc_optional omp
+    doc_optional autopep8
 }
 
 doc_links() {
@@ -320,22 +284,22 @@ doc_tier_line() {
 
 doc_tiers() {
     printf '\nTier this machine runs\n'
-    if doc_usable zsh 5.0; then
-        doc_tier_line shell full "zsh $(doc_version zsh)"
+    if program_usable zsh; then
+        doc_tier_line shell full "zsh $(program_version zsh)"
     else
-        doc_tier_line shell minimal "bash $(doc_version bash) (zsh 5.0 or newer is missing)"
+        doc_tier_line shell minimal "bash $(program_version bash) (zsh 5.0 or newer is missing)"
     fi
-    if doc_usable nvim 0.9; then
-        doc_tier_line editor full "neovim $(doc_version nvim)"
+    if program_usable nvim; then
+        doc_tier_line editor full "neovim $(program_version nvim)"
     elif have vim; then
-        doc_tier_line editor minimal "vim $(doc_version vim) (neovim 0.9 or newer is missing)"
+        doc_tier_line editor minimal "vim $(program_version vim) (neovim 0.9 or newer is missing)"
     else
         doc_tier_line editor none "neither neovim 0.9 or newer nor vim is installed"
     fi
-    if doc_usable tmux 3.0; then
-        doc_tier_line mux full "tmux $(doc_version tmux)"
+    if program_usable tmux; then
+        doc_tier_line mux full "tmux $(program_version tmux)"
     elif have screen; then
-        doc_tier_line mux minimal "screen $(doc_version screen) (tmux 3.0 or newer is missing)"
+        doc_tier_line mux minimal "screen $(program_version screen) (tmux 3.0 or newer is missing)"
     else
         doc_tier_line mux none "neither tmux 3.0 or newer nor screen is installed"
     fi
