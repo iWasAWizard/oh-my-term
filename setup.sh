@@ -83,7 +83,8 @@ install_bash() {
     link_file "${OMT}/shell/inputrc" "${HOME}/.inputrc"
     # Login shells read one of these instead of .bashrc. Only add the shim when
     # none of them exist, otherwise it would hide an existing .profile.
-    if [ ! -e "${HOME}/.bash_profile" ] && [ ! -e "${HOME}/.bash_login" ] && [ ! -e "${HOME}/.profile" ]; then
+    if [ "${HOME}/.bash_profile" -ef "${OMT}/shell/bash_profile" ] \
+        || { [ ! -e "${HOME}/.bash_profile" ] && [ ! -e "${HOME}/.bash_login" ] && [ ! -e "${HOME}/.profile" ]; }; then
         link_file "${OMT}/shell/bash_profile" "${HOME}/.bash_profile"
     else
         log "Leaving your existing login-shell file alone (it needs to source ~/.bashrc)"

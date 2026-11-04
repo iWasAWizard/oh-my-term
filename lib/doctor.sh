@@ -294,7 +294,7 @@ doc_programs() {
     doc_optional starship "${HOME}/.local/bin/starship" "bash and zsh use their plain prompts"
     doc_optional fzf "${HOME}/.fzf/bin/fzf" "fuzzy history and file search are skipped"
     doc_optional omp "" "oh-my-pi is not available (see the pi component)"
-    doc_optional autopep8 "" "Python fixing in Neovim is skipped"
+    doc_optional autopep8 "${HOME}/.local/bin/autopep8" "Python fixing in Neovim is skipped"
 }
 
 doc_links() {
