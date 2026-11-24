@@ -96,3 +96,50 @@ find "$un_home" -type l | while read -r link; do
         "${repo_root}"*) die "--uninstall left $link -> $(readlink "$link")" ;;
     esac
 done
+
+log "--uninstall restores the newest of several backups"
+gen_home="$(mktemp -d)"
+printf 'first\n' > "${gen_home}/.bashrc"
+HOME="$gen_home" setup --offline --no-tools bash >/dev/null
+rm -f "${gen_home}/.bashrc"
+printf 'second\n' > "${gen_home}/.bashrc"
+HOME="$gen_home" setup --offline --no-tools bash >/dev/null
+rm -f "${gen_home}/.bashrc"
+printf 'third\n' > "${gen_home}/.bashrc"
+HOME="$gen_home" setup --offline --no-tools bash >/dev/null
+# All three land within a second or two, and none may overwrite another
+[ "$(find "$gen_home" -maxdepth 1 -name '.bashrc.bak.*' | wc -l | tr -d ' ')" = "3" ] \
+    || die "expected three backups of ~/.bashrc, found: $(find "$gen_home" -maxdepth 1 -name '.bashrc.bak.*')"
+HOME="$gen_home" setup --uninstall bash >/dev/null
+[ "$(cat "${gen_home}/.bashrc")" = "third" ] || die "--uninstall did not restore the newest backup"
+[ "$(find "$gen_home" -maxdepth 1 -name '.bashrc.bak.*' | wc -l | tr -d ' ')" = "2" ] \
+    || die "--uninstall should leave the two older backups where they are"
+
+log "--update pulls a new commit from a real remote and restarts with it"
+# A throwaway remote on disk, so this needs no network. The copy leaves out .git, vendor/ and
+# dist/, which also lets it run from an extracted bundle that is not a git checkout.
+upd="$(mktemp -d)"
+mkdir "${upd}/seed"
+# --no-same-owner: as root (the Linux containers) tar would keep the checkout's owner, and git then
+# refuses the copy as "dubious ownership"
+(cd "$repo_root" && tar --exclude=.git --exclude=vendor --exclude=dist -cf - .) | tar --no-same-owner -C "${upd}/seed" -xf -
+ci_git() {
+    git -c user.name=ci -c user.email=ci@example.invalid "$@"
+}
+ci_git -C "${upd}/seed" init -q
+ci_git -C "${upd}/seed" symbolic-ref HEAD refs/heads/main
+ci_git -C "${upd}/seed" add -A
+ci_git -C "${upd}/seed" commit -q -m base
+ci_git clone -q --bare "${upd}/seed" "${upd}/origin.git"
+ci_git clone -q "${upd}/origin.git" "${upd}/installed"
+ci_git clone -q "${upd}/origin.git" "${upd}/other"
+ci_git -C "${upd}/other" commit -q --allow-empty -m "a new commit upstream"
+ci_git -C "${upd}/other" push -q origin main
+upd_home="$(mktemp -d)"
+HOME="$upd_home" OMT_OFFLINE=0 "$bash_bin" "${upd}/installed/setup.sh" --update --no-chsh --no-tools bash >/dev/null
+[ "$(ci_git -C "${upd}/installed" rev-parse HEAD)" = "$(ci_git -C "${upd}/other" rev-parse HEAD)" ] \
+    || die "--update did not pull the new commit"
+case "$(readlink "${upd_home}/.bashrc")" in
+    "${upd}/installed/"*) ;;
+    *) die "--update installed from somewhere other than the updated checkout: $(readlink "${upd_home}/.bashrc")" ;;
+esac

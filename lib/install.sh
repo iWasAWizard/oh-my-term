@@ -48,6 +48,22 @@ run() {
     fi
 }
 
+# backup_name PATH: a name for a backup of PATH that does not exist yet.
+# PATH.bak.<timestamp>, with .1, .2 and so on added when two backups land in the same second.
+# The names still sort oldest first, which unlink_file relies on.
+backup_name() {
+    local base name
+    local n=0
+
+    base="${1}.bak.$(timestamp)"
+    name="$base"
+    while [ -e "$name" ] || [ -L "$name" ]; do
+        n=$((n + 1))
+        name="${base}.${n}"
+    done
+    printf '%s\n' "$name"
+}
+
 # link_file SRC DST
 # Makes DST a symlink to SRC. Anything already at DST is moved aside first.
 link_file() {
@@ -74,7 +90,7 @@ link_file() {
     fi
     mkdir -p "$(dirname "$dst")"
     if [ -e "$dst" ] || [ -L "$dst" ]; then
-        bak="${dst}.bak.$(timestamp)"
+        bak="$(backup_name "$dst")"
         mv -- "$dst" "$bak"
         log "Moved ${dst} to ${bak}"
     fi

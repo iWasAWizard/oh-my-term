@@ -481,7 +481,7 @@ unraid_persist() {
         plan "add the boot-time install to ${go_file}: bash ${OMT}/setup.sh --offline --no-chsh ${run_list}"
         return 0
     fi
-    cp "$go_file" "${go_file}.bak.$(timestamp)"
+    cp "$go_file" "$(backup_name "$go_file")"
     cat >> "$go_file" <<EOF
 
 ${go_marker}
